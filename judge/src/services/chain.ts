@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 
 import { frameworkRegistryAbi, judgeRegistryAbi, marketAbi } from '@interpretive/shared'
-import { encodeAbiParameters, encodePacked, hashMessage, keccak256 } from 'viem'
+import { encodeAbiParameters, keccak256 } from 'viem'
 import type { Account, PublicClient, WalletClient } from 'viem'
 
 import type { IEnvSchema } from '../schema/env'
@@ -156,5 +156,3 @@ function verdictDigest(
 	return keccak256(encoded)
 }
 
-// re-export hashing helpers in case workers want them
-export { encodePacked, hashMessage }
