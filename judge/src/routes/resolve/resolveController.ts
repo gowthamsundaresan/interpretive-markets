@@ -1,5 +1,5 @@
-import { sendError } from '../../schema/errors.js'
-import type { JobQueue } from '../../workers/queue.js'
+import { sendError } from '../../schema/errors'
+import type { JobQueue } from '../../workers/queue'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 
 // --- Core functions ---

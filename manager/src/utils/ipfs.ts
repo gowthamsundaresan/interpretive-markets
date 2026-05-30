@@ -1,4 +1,4 @@
-import { loadEnv } from './env.js'
+import { loadEnv } from './env'
 
 // --- Types ---
 

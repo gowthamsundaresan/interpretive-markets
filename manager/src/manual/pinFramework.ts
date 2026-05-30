@@ -1,7 +1,7 @@
 import { resolve } from 'node:path'
 
-import { pinToPinata } from '../utils/ipfs.js'
-import { packFramework } from '../utils/tarball.js'
+import { pinToPinata } from '../utils/ipfs'
+import { packFramework } from '../utils/tarball'
 
 // --- Core functions ---
 

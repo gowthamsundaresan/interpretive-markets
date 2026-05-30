@@ -1,5 +1,5 @@
-import { loadEnv } from '../utils/env.js'
-import { runForgeScript } from '../utils/forge.js'
+import { loadEnv } from '../utils/env'
+import { runForgeScript } from '../utils/forge'
 
 // --- Core functions ---
 

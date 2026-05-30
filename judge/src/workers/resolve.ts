@@ -1,19 +1,19 @@
 import { keccak256, parseEther, toBytes } from 'viem'
 
-import { uploadBundle } from '../services/bundle.js'
+import { uploadBundle } from '../services/bundle'
 import {
 	loadDeployment,
 	readFrameworkUri,
 	readMarket,
 	signAndPostVerdict
-} from '../services/chain.js'
-import { fetchData } from '../services/data.js'
-import { assembleAndRun } from '../services/eigenai.js'
-import { loadFramework } from '../services/framework.js'
-import { getEigenAIClient } from '../utils/eigenaiClient.js'
-import { getClients } from '../utils/viemClient.js'
-import type { Job, JobQueue } from './queue.js'
-import type { IEnvSchema } from '../schema/env.js'
+} from '../services/chain'
+import { fetchData } from '../services/data'
+import { assembleAndRun } from '../services/eigenai'
+import { loadFramework } from '../services/framework'
+import { getEigenAIClient } from '../utils/eigenaiClient'
+import { getClients } from '../utils/viemClient'
+import type { Job, JobQueue } from './queue'
+import type { IEnvSchema } from '../schema/env'
 
 // --- Types ---
 

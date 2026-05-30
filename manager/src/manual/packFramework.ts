@@ -1,6 +1,6 @@
 import { resolve } from 'node:path'
 
-import { packFramework } from '../utils/tarball.js'
+import { packFramework } from '../utils/tarball'
 
 // --- Core functions ---
 

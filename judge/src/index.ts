@@ -3,14 +3,14 @@ import fastifyEnv from '@fastify/env'
 import fastify from 'fastify'
 import fastifyPlugin from 'fastify-plugin'
 
-import { authenticateHook } from './hooks/authenticate.js'
-import { rateLimitHook } from './hooks/rateLimit.js'
-import { teeSignerHook } from './hooks/teeSigner.js'
-import { register as registerResolve } from './routes/resolve/resolveRoutes.js'
-import { envSchema } from './schema/env.js'
-import { logger } from './utils/logger.js'
-import { JobQueue } from './workers/queue.js'
-import { startResolveWorker } from './workers/resolve.js'
+import { authenticateHook } from './hooks/authenticate'
+import { rateLimitHook } from './hooks/rateLimit'
+import { teeSignerHook } from './hooks/teeSigner'
+import { register as registerResolve } from './routes/resolve/resolveRoutes'
+import { envSchema } from './schema/env'
+import { logger } from './utils/logger'
+import { JobQueue } from './workers/queue'
+import { startResolveWorker } from './workers/resolve'
 
 // --- Core functions ---
 

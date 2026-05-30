@@ -1,4 +1,4 @@
-import { sendError } from '../schema/errors.js'
+import { sendError } from '../schema/errors'
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify'
 
 // --- Core functions ---

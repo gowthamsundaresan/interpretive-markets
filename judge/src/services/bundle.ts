@@ -1,8 +1,8 @@
 import { content } from '@interpretive/shared'
 import type { ReExecBundle } from '@interpretive/shared'
 
-import { pinBundle } from '../utils/ipfsClient.js'
-import type { IEnvSchema } from '../schema/env.js'
+import { pinBundle } from '../utils/ipfsClient'
+import type { IEnvSchema } from '../schema/env'
 
 // --- Types ---
 

@@ -2,9 +2,9 @@ import {
 	ResolveAcceptedResponseSchema,
 	ResolveParamsSchema,
 	ResolveStatusResponseSchema
-} from '../../schema/resolve.js'
-import { makeController } from './resolveController.js'
-import type { JobQueue } from '../../workers/queue.js'
+} from '../../schema/resolve'
+import { makeController } from './resolveController'
+import type { JobQueue } from '../../workers/queue'
 import type { FastifyInstance } from 'fastify'
 
 // --- Core functions ---

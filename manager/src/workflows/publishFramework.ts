@@ -1,9 +1,9 @@
 import { resolve } from 'node:path'
 
-import { loadEnv } from '../utils/env.js'
-import { runForgeScript } from '../utils/forge.js'
-import { pinToPinata } from '../utils/ipfs.js'
-import { packFramework } from '../utils/tarball.js'
+import { loadEnv } from '../utils/env'
+import { runForgeScript } from '../utils/forge'
+import { pinToPinata } from '../utils/ipfs'
+import { packFramework } from '../utils/tarball'
 
 // --- Core functions ---
 

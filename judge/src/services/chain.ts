@@ -4,7 +4,7 @@ import { frameworkRegistryAbi, judgeRegistryAbi, marketAbi } from '@interpretive
 import { encodeAbiParameters, encodePacked, hashMessage, keccak256 } from 'viem'
 import type { Account, PublicClient, WalletClient } from 'viem'
 
-import type { IEnvSchema } from '../schema/env.js'
+import type { IEnvSchema } from '../schema/env'
 
 // --- Types ---
 

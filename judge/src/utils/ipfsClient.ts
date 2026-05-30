@@ -1,6 +1,6 @@
 import { content } from '@interpretive/shared'
 
-import type { IEnvSchema } from '../schema/env.js'
+import type { IEnvSchema } from '../schema/env'
 
 // --- Core functions ---
 

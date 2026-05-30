@@ -2,7 +2,7 @@ import { createPublicClient, createWalletClient, http, type Chain } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { mainnet, sepolia } from 'viem/chains'
 
-import { loadEnv, type Network } from './env.js'
+import { loadEnv, type Network } from './env'
 
 // --- Core functions ---
 

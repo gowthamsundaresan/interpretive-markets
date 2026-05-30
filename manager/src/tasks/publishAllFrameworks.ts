@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-import { publishFramework } from '../workflows/publishFramework.js'
+import { publishFramework } from '../workflows/publishFramework'
 
 // --- Core functions ---
 
