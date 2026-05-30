@@ -1,0 +1,22 @@
+[profile.default]
+solc_version = "0.8.27"
+via_ir = true
+optimizer = true
+
+# Path to contract sources relative to the root of the project.
+src = "src"
+
+# Path to the script contract sources relative to the root of the project.
+script = "script"
+
+# Path to store contract artifacts relative to the root of the project.
+out = "out"
+
+# Array of paths that contain libraries, relative to the root of the project.
+libs = ["lib"]
+
+# Disable FFI for security
+ffi = false
+
+# Allow file access for deployment scripts
+fs_permissions = [{ access = "read-write", path = "./"}]
