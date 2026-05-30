@@ -114,8 +114,88 @@ forge script script/tasks/RegisterJudge.s.sol:RegisterJudge \
 
 The judge's signer address is logged at startup (`"judge running with signer 0x…"`). It's derived from `MNEMONIC` via viem's `mnemonicToAccount` — in EigenCompute production, that mnemonic comes from `process.env.MNEMONIC` injected into the TEE by KMS.
 
+## End-to-end publish runbook (v0)
+
+Assumes both `interpretive-markets` and `interpretive-markets-backend` are cloned as siblings.
+
+```bash
+# 0. install ecloud cli + foundry deps
+npm i -g @layr-labs/ecloud-cli
+ecloud auth login
+ecloud billing subscribe
+
+# 1. deploy contracts to sepolia
+cd interpretive-markets
+cp .env.example .env   # fill SEPOLIA_RPC_URL + DEPLOYER_PRIVATE_KEY (+ETHERSCAN_API_KEY optional)
+source .env
+forge script script/deploy/DeployRegistries.s.sol:DeployRegistries \
+  --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
+  --sig "run(string)" -- "sepolia"
+# → script/outputs/sepolia/deployment.json now has frameworkRegistry / judgeRegistry / market addresses
+
+# 2. publish the Pedri framework (pack + pin + register)
+cd manager
+cp .env.example .env   # NETWORK=sepolia + same SEPOLIA_RPC_URL/DEPLOYER_PRIVATE_KEY + PINATA_JWT
+npm install
+npm run publish-framework football-player-value-v1
+# → frameworkId logged + on-chain registration confirmed
+
+# 3. bring up backend (postgres + api + seeder + watcher)
+cd ../../interpretive-markets-backend
+docker-compose up -d
+cp .env.example .env   # DATABASE_URL is fine as-is for local
+nvm exec 22 npm install
+nvm exec 22 npm run prisma:migrate -w @interpretive/prisma
+# fill each package's .env (DEPLOYMENT_FILE = absolute path to ../interpretive-markets/script/outputs/sepolia/deployment.json)
+# in separate terminals:
+nvm exec 22 npm run dev -w @interpretive/api      # 3000
+nvm exec 22 npm run dev -w @interpretive/seeder
+nvm exec 22 npm run dev -w @interpretive/watcher
+
+# 4. build + deploy judge to EigenCompute
+cd ../interpretive-markets/judge
+cp .env.example .env   # MNEMONIC (local only), JUDGE_API_KEY, EIGENAI_API_KEY, SEPOLIA_RPC_URL, PINATA_JWT, DEPLOYMENT_FILE
+npm install && npm run link-shared
+cd /Users/gowtham/Projects   # build context must include both repos
+docker build --platform linux/amd64 \
+  -f interpretive-markets/judge/Dockerfile \
+  -t interpretive-judge:v0 .
+ecloud compute app create --name interpretive-judge --language typescript
+ecloud compute app deploy   # records the image digest
+
+# 5. fund the judge's TEE-derived signer address with ~0.01 Sepolia ETH
+#    (the judge logs it at startup; resolve() costs gas)
+
+# 6. register the judge image digest → signer mapping on-chain
+cd ../interpretive-markets
+forge script script/tasks/RegisterJudge.s.sol:RegisterJudge \
+  --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
+  --sig "run(string,bytes32,address)" -- "sepolia" <imageDigest> <judgeSignerAddress>
+
+# 7. create the Pedri market (resolutionTime in the past so it's immediately resolvable)
+cd manager
+npm run create-market \
+  "Is Erling Haaland more valuable to Manchester City than Kylian Mbappe is to Real Madrid?" \
+  "football-player-value-v1" \
+  "https://<your-api-host>/api/v1/evidence/haaland-mbappe-2024" \
+  "$(($(date +%s) - 60))" \
+  "<imageDigest>"
+# → marketId logged
+
+# 8. trigger resolution
+curl -X POST https://<judge-host>/resolve/<marketId> -H "x-api-key: $JUDGE_API_KEY"
+# → 202 Accepted, judge runs the pipeline
+
+# 9. observe
+curl http://localhost:3000/api/v1/markets/<marketId>             # seeder picks it up within 30s
+curl http://localhost:3000/api/v1/markets/<marketId>/verdict     # outcome + confidence + bundleRef
+# watcher polls every 60s — should flip reExecStatus from `pending` → `verified`
+```
+
+If step 9 shows `reExecStatus: verified` then the determinism story works end-to-end and v0 is live.
+
 ## What's next
 
-- `interpretive-markets-backend` — Postgres-backed API, chain indexer (seeder), and re-execution watcher.
-- Step 4 (deferred): swap the judge's direct-HTTPS data fetcher (`judge/src/services/data.ts`) for Opacity zkTLS.
+- `interpretive-markets-backend` — Postgres-backed API, chain indexer (seeder), and re-execution watcher (now live).
+- Step 4 (deferred): swap the judge's direct-HTTPS data fetcher (`judge/src/services/data.ts`) for Opacity zkTLS — same `evidenceUrl` indirection means no changes to market creation.
 - Step 7 (deferred): MarketFactory + YES/NO pool mechanics + settlement.

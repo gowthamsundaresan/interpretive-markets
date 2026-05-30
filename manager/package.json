@@ -10,7 +10,8 @@
         "pin-framework": "tsx ./src/manual/pinFramework.ts",
         "register-framework": "tsx ./src/manual/registerFramework.ts",
         "publish-framework": "tsx ./src/workflows/publishFramework.ts",
-        "publish-all": "tsx ./src/tasks/publishAllFrameworks.ts"
+        "publish-all": "tsx ./src/tasks/publishAllFrameworks.ts",
+        "create-market": "tsx ./src/workflows/createMarket.ts"
     },
     "devDependencies": {
         "@types/node": "^20.12.2",
