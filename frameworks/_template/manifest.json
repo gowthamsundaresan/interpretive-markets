@@ -1,0 +1,31 @@
+{
+    "name": "{framework-slug}",
+    "version": "0.1.0",
+    "description": "",
+    "extends": null,
+    "applicableTo": [],
+    "model": {
+        "id": "gpt-oss-120b",
+        "provider": "eigenai",
+        "sampling": {
+            "temperature": 0,
+            "topP": 1.0,
+            "seed": 42,
+            "maxTokens": 1500
+        }
+    },
+    "evidenceSchema": "schemas/yourEvidenceSchema.json",
+    "outputSchema": {
+        "type": "object",
+        "required": ["outcome", "confidence", "reasoning"],
+        "properties": {
+            "outcome": { "type": "integer" },
+            "confidence": { "type": "number" },
+            "reasoning": { "type": "string" }
+        }
+    },
+    "promptTemplate": {
+        "system": "framework.md",
+        "userTemplate": "question: {{question}}\n\nevidence:\n{{evidence_json}}"
+    }
+}

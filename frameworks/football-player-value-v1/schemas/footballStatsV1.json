@@ -1,0 +1,93 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "FootballStatsV1",
+    "type": "object",
+    "required": ["asOf", "players"],
+    "properties": {
+        "asOf": {
+            "type": "string",
+            "format": "date",
+            "description": "Date the evidence snapshot was taken"
+        },
+        "players": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": ["club", "position", "stats", "availability", "marketValue", "role"],
+                "properties": {
+                    "club": { "type": "string" },
+                    "position": {
+                        "type": "string",
+                        "enum": ["GK", "DF", "MF", "FW"]
+                    },
+                    "stats": {
+                        "type": "object",
+                        "required": ["seasonToDate", "trailing12m"],
+                        "properties": {
+                            "seasonToDate": { "$ref": "#/$defs/statBlock" },
+                            "trailing12m": { "$ref": "#/$defs/statBlock" }
+                        }
+                    },
+                    "availability": {
+                        "type": "object",
+                        "required": ["minutesPlayed", "minutesAvailable", "injuries"],
+                        "properties": {
+                            "minutesPlayed": { "type": "integer", "minimum": 0 },
+                            "minutesAvailable": { "type": "integer", "minimum": 0 },
+                            "injuries": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "required": ["from", "to", "type"],
+                                    "properties": {
+                                        "from": { "type": "string", "format": "date" },
+                                        "to": { "type": "string", "format": "date" },
+                                        "type": { "type": "string" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "marketValue": {
+                        "type": "object",
+                        "required": ["eurMillions", "trend"],
+                        "properties": {
+                            "eurMillions": { "type": "number", "minimum": 0 },
+                            "trend": {
+                                "type": "string",
+                                "enum": ["rising", "stable", "falling"]
+                            }
+                        }
+                    },
+                    "role": {
+                        "type": "object",
+                        "required": ["captain", "setPieceTaker", "bigGameStarts", "bigGameTotal"],
+                        "properties": {
+                            "captain": { "type": "boolean" },
+                            "setPieceTaker": { "type": "boolean" },
+                            "bigGameStarts": { "type": "integer", "minimum": 0 },
+                            "bigGameTotal": { "type": "integer", "minimum": 0 }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "$defs": {
+        "statBlock": {
+            "type": "object",
+            "required": ["appearances", "minutes"],
+            "properties": {
+                "appearances": { "type": "integer", "minimum": 0 },
+                "minutes": { "type": "integer", "minimum": 0 },
+                "goals": { "type": "integer", "minimum": 0 },
+                "assists": { "type": "integer", "minimum": 0 },
+                "xG": { "type": "number", "minimum": 0 },
+                "xA": { "type": "number", "minimum": 0 },
+                "keyPassesPer90": { "type": "number", "minimum": 0 },
+                "defensiveActionsPer90": { "type": "number", "minimum": 0 },
+                "savePercentage": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+console.log('manager — use one of the npm scripts:')
+console.log('  npm run pack-framework <slug>')
+console.log('  npm run pin-framework <slug>')
+console.log('  npm run register-framework <id> <uri> [metadata]')
+console.log('  npm run publish-framework <slug>')
+console.log('  npm run publish-all')

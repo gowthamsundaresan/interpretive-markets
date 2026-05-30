@@ -1,0 +1,32 @@
+{
+    "name": "football-player-value-v1",
+    "version": "1.0.0",
+    "description": "Resolves binary questions about a football player's value to their club.",
+    "extends": null,
+    "applicableTo": ["player_value", "player_ranking"],
+    "model": {
+        "id": "gpt-oss-120b",
+        "provider": "eigenai",
+        "sampling": {
+            "temperature": 0,
+            "topP": 1.0,
+            "seed": 42,
+            "maxTokens": 1500
+        }
+    },
+    "evidenceSchema": "schemas/footballStatsV1.json",
+    "outputSchema": {
+        "type": "object",
+        "required": ["outcome", "confidence", "reasoning", "scorecard"],
+        "properties": {
+            "outcome": { "type": "integer", "enum": [0, 1, 2] },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "reasoning": { "type": "string", "maxLength": 2400 },
+            "scorecard": { "type": "object" }
+        }
+    },
+    "promptTemplate": {
+        "system": "framework.md",
+        "userTemplate": "question: {{question}}\n\nevidence:\n{{evidence_json}}"
+    }
+}

@@ -1,0 +1,70 @@
+{
+    "name": "2024 Haaland vs Mbappe at their clubs",
+    "question": "Is Erling Haaland more valuable to Manchester City than Kylian Mbappe is to Real Madrid?",
+    "expectedOutcome": 1,
+    "expectedConfidenceMin": 0.65,
+    "evidence": {
+        "asOf": "2024-12-31",
+        "players": {
+            "Erling Haaland": {
+                "club": "Manchester City",
+                "position": "FW",
+                "stats": {
+                    "seasonToDate": {
+                        "appearances": 22,
+                        "minutes": 1840,
+                        "goals": 19,
+                        "assists": 3,
+                        "xG": 17.4,
+                        "xA": 2.1
+                    },
+                    "trailing12m": {
+                        "appearances": 48,
+                        "minutes": 4010,
+                        "goals": 41,
+                        "assists": 7,
+                        "xG": 38.2,
+                        "xA": 5.4
+                    }
+                },
+                "availability": {
+                    "minutesPlayed": 4010,
+                    "minutesAvailable": 4320,
+                    "injuries": [{ "from": "2024-03-15", "to": "2024-04-02", "type": "knock" }]
+                },
+                "marketValue": { "eurMillions": 180, "trend": "stable" },
+                "role": { "captain": false, "setPieceTaker": false, "bigGameStarts": 11, "bigGameTotal": 12 }
+            },
+            "Kylian Mbappe": {
+                "club": "Real Madrid",
+                "position": "FW",
+                "stats": {
+                    "seasonToDate": {
+                        "appearances": 21,
+                        "minutes": 1700,
+                        "goals": 12,
+                        "assists": 4,
+                        "xG": 13.1,
+                        "xA": 3.6
+                    },
+                    "trailing12m": {
+                        "appearances": 44,
+                        "minutes": 3640,
+                        "goals": 28,
+                        "assists": 9,
+                        "xG": 27.5,
+                        "xA": 8.2
+                    }
+                },
+                "availability": {
+                    "minutesPlayed": 3640,
+                    "minutesAvailable": 4320,
+                    "injuries": [{ "from": "2024-09-20", "to": "2024-10-10", "type": "hamstring" }]
+                },
+                "marketValue": { "eurMillions": 180, "trend": "stable" },
+                "role": { "captain": false, "setPieceTaker": false, "bigGameStarts": 10, "bigGameTotal": 12 }
+            }
+        }
+    },
+    "notes": "Synthetic evidence approximating 2024 form. Used to verify the framework returns outcome=1 with confidence>=0.65 (Haaland production margin should drive a clear YES)."
+}
