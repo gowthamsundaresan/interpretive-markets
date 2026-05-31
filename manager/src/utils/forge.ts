@@ -49,7 +49,12 @@ export function runForgeScript(args: {
         ...args.sigArgs
     ]
 
-    const result = spawnSync('forge', cliArgs, { cwd: REPO_ROOT, stdio: 'inherit' })
+    const foundryBin = resolve(process.env.HOME ?? '', '.foundry', 'bin')
+    const env = {
+        ...process.env,
+        PATH: `${foundryBin}:${process.env.PATH ?? ''}`
+    }
+    const result = spawnSync('forge', cliArgs, { cwd: REPO_ROOT, stdio: 'inherit', env })
     if (result.status !== 0) {
         throw new Error(`forge script failed with status ${result.status}`)
     }
