@@ -1,6 +1,9 @@
 import { eigenai } from '@interpretive/shared'
-import type { FrameworkManifest, InferenceResult } from '@interpretive/shared'
-import type OpenAI from 'openai'
+import type {
+	FrameworkManifest,
+	InferenceClient,
+	InferenceResult
+} from '@interpretive/shared'
 
 // --- Types ---
 
@@ -11,7 +14,7 @@ export interface JudgeRunResult extends InferenceResult {
 // --- Core functions ---
 
 export async function assembleAndRun(args: {
-	client: OpenAI
+	client: InferenceClient
 	manifest: FrameworkManifest
 	systemPrompt: string
 	question: string

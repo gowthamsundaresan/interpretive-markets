@@ -1,12 +1,12 @@
 {
     "name": "football-player-value-v1",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Resolves binary questions about a football player's value to their club.",
     "extends": null,
     "applicableTo": ["player_value", "player_ranking"],
     "model": {
-        "id": "gpt-oss-120b",
-        "provider": "eigenai",
+        "id": "anthropic/claude-sonnet-4.6",
+        "provider": "gateway",
         "sampling": {
             "temperature": 0,
             "topP": 1.0,

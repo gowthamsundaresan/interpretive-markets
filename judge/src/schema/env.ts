@@ -10,7 +10,8 @@ export interface IEnvSchema {
 	MAINNET_RPC_URL?: string
 	MNEMONIC: string
 	JUDGE_API_KEY: string
-	EIGENAI_API_KEY: string
+	INFERENCE_PATH: 'gateway' | 'eigenai'
+	EIGENAI_API_KEY?: string
 	EIGENAI_BASE_URL: string
 	PINATA_JWT: string
 	DEPLOYMENT_FILE: string
@@ -26,13 +27,7 @@ declare module 'fastify' {
 
 export const envSchema: JSONSchemaType<IEnvSchema> = {
 	type: 'object',
-	required: [
-		'MNEMONIC',
-		'JUDGE_API_KEY',
-		'EIGENAI_API_KEY',
-		'PINATA_JWT',
-		'DEPLOYMENT_FILE'
-	],
+	required: ['MNEMONIC', 'JUDGE_API_KEY', 'PINATA_JWT', 'DEPLOYMENT_FILE'],
 	properties: {
 		SERVER_PORT: { type: 'string', default: '3001' },
 		SERVER_HOST: { type: 'string', default: '0.0.0.0' },
@@ -41,10 +36,11 @@ export const envSchema: JSONSchemaType<IEnvSchema> = {
 		MAINNET_RPC_URL: { type: 'string', nullable: true },
 		MNEMONIC: { type: 'string' },
 		JUDGE_API_KEY: { type: 'string' },
-		EIGENAI_API_KEY: { type: 'string' },
+		INFERENCE_PATH: { type: 'string', enum: ['gateway', 'eigenai'], default: 'gateway' },
+		EIGENAI_API_KEY: { type: 'string', nullable: true },
 		EIGENAI_BASE_URL: {
 			type: 'string',
-			default: 'https://eigenai.eigencloud.xyz/v1'
+			default: 'https://eigenai-sepolia.eigencloud.xyz/v1'
 		},
 		PINATA_JWT: { type: 'string' },
 		DEPLOYMENT_FILE: { type: 'string' }

@@ -10,7 +10,7 @@ import {
 import { fetchData } from '../services/data'
 import { assembleAndRun } from '../services/eigenai'
 import { loadFramework } from '../services/framework'
-import { getEigenAIClient } from '../utils/eigenaiClient'
+import { getInferenceClient } from '../utils/eigenaiClient'
 import { getClients } from '../utils/viemClient'
 import type { Job, JobQueue } from './queue'
 import type { IEnvSchema } from '../schema/env'
@@ -100,8 +100,8 @@ async function runPipeline(args: {
 	logger.info(`[${marketId}] fetching evidence`)
 	const data = await fetchData(market.dataSourceSpec)
 
-	logger.info(`[${marketId}] calling eigenai`)
-	const ai = getEigenAIClient(config)
+	logger.info(`[${marketId}] calling inference (${config.INFERENCE_PATH})`)
+	const ai = getInferenceClient(config)
 	const inference = await assembleAndRun({
 		client: ai,
 		manifest: framework.manifest,
