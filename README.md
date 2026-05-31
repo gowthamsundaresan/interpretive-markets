@@ -140,13 +140,13 @@ npm install
 npm run publish-framework football-player-value-v1
 # → frameworkId logged + on-chain registration confirmed
 
-# 3. bring up backend (postgres + api + seeder + watcher)
+# 3. bring up backend (supabase + api + seeder + watcher)
 cd ../../interpretive-markets-backend
-docker-compose up -d
-cp .env.example .env   # DATABASE_URL is fine as-is for local
+cp .env.example .env   # paste Supabase DATABASE_URL (pgbouncer, :6543) + DIRECT_URL (:5432)
 nvm exec 22 npm install
 nvm exec 22 npm run prisma:migrate -w @interpretive/prisma
-# fill each package's .env (DEPLOYMENT_FILE = absolute path to ../interpretive-markets/script/outputs/sepolia/deployment.json)
+# fill each package's .env (same Supabase URLs + DEPLOYMENT_FILE = absolute path to
+# ../interpretive-markets/script/outputs/sepolia/deployment.json)
 # in separate terminals:
 nvm exec 22 npm run dev -w @interpretive/api      # 3000
 nvm exec 22 npm run dev -w @interpretive/seeder
