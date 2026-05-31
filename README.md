@@ -6,9 +6,9 @@ Prediction markets resolved by AI judges against registered evaluation framework
 
 Truth comes in three flavors:
 
-1. **Objective** — *"Roses are red."* A fact of nature, deterministically observable.
-2. **Subjective** — *"Violets are perfection."* The observer's own experience is the only backing. Can be described, chosen to be believed, but not transmitted.
-3. **Intersubjective** — *"Donald Trump won the election."* Not directly observable, but reasonable humans who share a construct (here: the institutional rules of representative democracy) will agree on it.
+1. **Objective** — _"Roses are red."_ A fact of nature, deterministically observable.
+2. **Subjective** — _"Violets are perfection."_ The observer's own experience is the only backing. Can be described, chosen to be believed, but not transmitted.
+3. **Intersubjective** — _"Donald Trump won the election."_ Not directly observable, but reasonable humans who share a construct (here: the institutional rules of representative democracy) will agree on it.
 
 Most human coordination systems (money, judiciary, markets) verify some combination of objective and intersubjective claims. Crypto stacks each of these:
 
@@ -16,15 +16,15 @@ Most human coordination systems (money, judiciary, markets) verify some combinat
 - **Oracles** verify off-chain facts (price feeds, sports results, weather) and import them on-chain.
 - **Restaking / EigenLayer** verifies off-chain computation — "did this Docker image run with these inputs and produce that output?"
 
-What none of them verify is **interpretive truth**: intersubjective claims that can be resolved differently depending on which *evaluation framework* you apply. Given the same evidence, two valid frameworks can produce two different resolutions — each interpretively true within its own framework.
+What none of them verify is **interpretive truth**: intersubjective claims that can be resolved differently depending on which _evaluation framework_ you apply. Given the same evidence, two valid frameworks can produce two different resolutions — each interpretively true within its own framework.
 
-> *"Is Pedri Barcelona's most valuable player?"* is an interpretive problem. Frameworks could weight on-field stats, transfer value, public sentiment, longevity, big-game starts, captaincy — each weighting produces a defensible verdict. An observer who rejects the framework will not recognise the verdict as truth.
+> _"Is Pedri Barcelona's most valuable player?"_ is an interpretive problem. Frameworks could weight on-field stats, transfer value, public sentiment, longevity, big-game starts, captaincy — each weighting produces a defensible verdict. An observer who rejects the framework will not recognise the verdict as truth.
 
-> *"Did Arsenal win?"* is **not** an interpretive problem. The rules of football are universally accepted.
+> _"Did Arsenal win?"_ is **not** an interpretive problem. The rules of football are universally accepted.
 
 LLMs are remarkably good at interpretation. Given a question, an evaluation framework, and unstructured evidence, they can reason out a defensible resolution. As verifiable AI matures, an arc of interpretive adjudication moving to AI becomes plausible.
 
-**Near-term**, that looks like *interpretive prediction markets* — markets predicated on reasoning, where multiple competing frameworks can be registered for the same question, and order flow votes on which framework people trust.
+**Near-term**, that looks like _interpretive prediction markets_ — markets predicated on reasoning, where multiple competing frameworks can be registered for the same question, and order flow votes on which framework people trust.
 
 **Medium-term**, the same primitive scales to **cloud courts**: sovereign AI agents with property rights need arbitration on the internet, and internet societies can track, vote for, and propose changes to the frameworks they want their disputes resolved against.
 
@@ -43,12 +43,12 @@ A separate **watcher** service polls for newly posted verdicts, pulls each re-ex
 
 ## Live deployment
 
-| | Sepolia |
-|---|---|
-| `FrameworkRegistry` | [`0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d`](https://sepolia.etherscan.io/address/0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d) |
-| `JudgeRegistry` | [`0x17993708486461A22Fdd2F318AD38B2A9847c8f2`](https://sepolia.etherscan.io/address/0x17993708486461A22Fdd2F318AD38B2A9847c8f2) |
-| `Market` | [`0xF973768571c771AD2CA2f2671964EFce9218267B`](https://sepolia.etherscan.io/address/0xF973768571c771AD2CA2f2671964EFce9218267B) |
-| Pedri framework | `0x627521cfe327f54fab2fbc347e65db793af7050261b23bb749d7450dee25a40f` (IPFS `QmZpT2JJCWACtkLcexuBFzTyURtUyf4GXL7CW2bHeiqREL`) |
+|                      | Sepolia                                                                                                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `FrameworkRegistry`  | [`0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d`](https://sepolia.etherscan.io/address/0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d)                                                 |
+| `JudgeRegistry`      | [`0x17993708486461A22Fdd2F318AD38B2A9847c8f2`](https://sepolia.etherscan.io/address/0x17993708486461A22Fdd2F318AD38B2A9847c8f2)                                                 |
+| `Market`             | [`0xF973768571c771AD2CA2f2671964EFce9218267B`](https://sepolia.etherscan.io/address/0xF973768571c771AD2CA2f2671964EFce9218267B)                                                 |
+| Pedri framework      | `0x627521cfe327f54fab2fbc347e65db793af7050261b23bb749d7450dee25a40f` (IPFS `QmZpT2JJCWACtkLcexuBFzTyURtUyf4GXL7CW2bHeiqREL`)                                                    |
 | Judge (EigenCompute) | App `0xa6DC8b0EA1fc8CDe102c5DFF7F599a0Ec51e70FA` · IP `34.158.46.65:3001` · [attestation](https://verify-sepolia.eigencloud.xyz/app/0xa6DC8b0EA1fc8CDe102c5DFF7F599a0Ec51e70FA) |
 
 ## Frameworks
@@ -61,7 +61,7 @@ A framework is a content-addressed tarball with three required files:
 
 The tarball is SHA-256'd to produce `framework_id`. The registry stores `id → (uri, author, metadata)` — append-only, never updated. Anyone who fetches the IPFS bytes can verify the hash matches the on-chain id.
 
-The repo ships with [`frameworks/football-player-value-v1/`](./frameworks/football-player-value-v1) as a reference. It resolves binary questions about a football player's value to their club (e.g. *"Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?"*), weighting on-pitch production, availability, role importance, market value, and tactical dependence.
+The repo ships with [`frameworks/football-player-value-v1/`](./frameworks/football-player-value-v1) as a reference. It resolves binary questions about a football player's value to their club (e.g. _"Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?"_), weighting on-pitch production, availability, role importance, market value, and tactical dependence.
 
 See [`frameworks/_template/`](./frameworks/_template) to author your own.
 

@@ -28,23 +28,21 @@ const queue = new JobQueue()
 server.register(registerResolve(queue), { prefix: '/resolve' })
 
 async function start() {
-	try {
-		await server.listen({
-			port: Number(server.config.SERVER_PORT),
-			host: server.config.SERVER_HOST
-		})
-		server.log.info(
-			`judge running with signer ${server.judgeAccount.address} on ${server.config.NETWORK}`
-		)
+    try {
+        await server.listen({
+            port: Number(server.config.SERVER_PORT),
+            host: server.config.SERVER_HOST
+        })
+        server.log.info(`judge running with signer ${server.judgeAccount.address} on ${server.config.NETWORK}`)
 
-		startResolveWorker({ queue, config: server.config, logger }).catch((err) => {
-			server.log.error(err, 'resolve worker crashed')
-			process.exit(1)
-		})
-	} catch (err) {
-		server.log.error(err)
-		process.exit(1)
-	}
+        startResolveWorker({ queue, config: server.config, logger }).catch((err) => {
+            server.log.error(err, 'resolve worker crashed')
+            process.exit(1)
+        })
+    } catch (err) {
+        server.log.error(err)
+        process.exit(1)
+    }
 }
 
 start()

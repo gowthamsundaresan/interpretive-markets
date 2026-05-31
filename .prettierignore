@@ -1,0 +1,13 @@
+lib/
+out/
+cache/
+broadcast/
+node_modules/
+manager/node_modules/
+manager/dist/
+judge/node_modules/
+judge/dist/
+judge/_vendored_shared/
+judge/deployment.json
+package-lock.json
+script/outputs/
