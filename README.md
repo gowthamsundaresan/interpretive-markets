@@ -1,110 +1,128 @@
 # interpretive-markets
 
-Contracts + framework content + framework publishing tools for **interpretive prediction markets** — markets resolved by AI judges against registered evaluation frameworks. Built on EigenCloud (EigenAI for the inference, EigenCompute for the judge container, EigenDA + IPFS for re-execution bundles).
+Prediction markets resolved by AI judges against registered evaluation frameworks. Built on EigenCloud.
 
-This repo is one of two:
+## Why this exists
 
-- `interpretive-markets` (this repo) — Foundry contracts, framework content, `manager/` TS tools, and (later) the `judge/` EigenCompute app.
-- `interpretive-markets-backend` — TS monorepo with the public API, chain indexer, and watcher (re-execution bot).
+Truth comes in three flavors:
 
-## Layout
+1. **Objective** — *"Roses are red."* A fact of nature, deterministically observable.
+2. **Subjective** — *"Violets are perfection."* The observer's own experience is the only backing. Can be described, chosen to be believed, but not transmitted.
+3. **Intersubjective** — *"Donald Trump won the election."* Not directly observable, but reasonable humans who share a construct (here: the institutional rules of representative democracy) will agree on it.
+
+Most human coordination systems (money, judiciary, markets) verify some combination of objective and intersubjective claims. Crypto stacks each of these:
+
+- **L1 blockchains** verify on-chain state. Whatever is on-chain is true by virtue of being on-chain.
+- **Oracles** verify off-chain facts (price feeds, sports results, weather) and import them on-chain.
+- **Restaking / EigenLayer** verifies off-chain computation — "did this Docker image run with these inputs and produce that output?"
+
+What none of them verify is **interpretive truth**: intersubjective claims that can be resolved differently depending on which *evaluation framework* you apply. Given the same evidence, two valid frameworks can produce two different resolutions — each interpretively true within its own framework.
+
+> *"Is Pedri Barcelona's most valuable player?"* is an interpretive problem. Frameworks could weight on-field stats, transfer value, public sentiment, longevity, big-game starts, captaincy — each weighting produces a defensible verdict. An observer who rejects the framework will not recognise the verdict as truth.
+
+> *"Did Arsenal win?"* is **not** an interpretive problem. The rules of football are universally accepted.
+
+LLMs are remarkably good at interpretation. Given a question, an evaluation framework, and unstructured evidence, they can reason out a defensible resolution. As verifiable AI matures, an arc of interpretive adjudication moving to AI becomes plausible.
+
+**Near-term**, that looks like *interpretive prediction markets* — markets predicated on reasoning, where multiple competing frameworks can be registered for the same question, and order flow votes on which framework people trust.
+
+**Medium-term**, the same primitive scales to **cloud courts**: sovereign AI agents with property rights need arbitration on the internet, and internet societies can track, vote for, and propose changes to the frameworks they want their disputes resolved against.
+
+## How it works
+
+A market is a tuple `(question, framework_id, data_source, model_id, prompt_hash, resolution_time, judge_id)` committed on-chain at creation. All immutable. At resolution time:
+
+1. An auth-gated **judge** running in an Intel TDX TEE on EigenCompute reads the market params.
+2. It fetches the **framework** tarball from IPFS, verifies its `sha256 == framework_id` against the on-chain `FrameworkRegistry`.
+3. Fetches **evidence** via the registered data source (an HTTPS URL today; Opacity zkTLS later).
+4. Assembles a deterministic prompt and calls **EigenAI** (deterministic LLM inference) — or via the EigenCloud AI Gateway in non-deterministic mode.
+5. Uploads a **re-execution bundle** to IPFS — the full inputs, prompt, response, and SHA-256s, so a watcher can re-run the inference and verify byte equality.
+6. Signs the verdict with its **TEE-derived key** and posts it on-chain via `Market.resolve()`.
+
+A separate **watcher** service polls for newly posted verdicts, pulls each re-exec bundle, re-runs the inference, and either marks it `verified` or files `disputeVerdict()` on byte mismatch.
+
+## Live deployment
+
+| | Sepolia |
+|---|---|
+| `FrameworkRegistry` | [`0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d`](https://sepolia.etherscan.io/address/0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d) |
+| `JudgeRegistry` | [`0x17993708486461A22Fdd2F318AD38B2A9847c8f2`](https://sepolia.etherscan.io/address/0x17993708486461A22Fdd2F318AD38B2A9847c8f2) |
+| `Market` | [`0xF973768571c771AD2CA2f2671964EFce9218267B`](https://sepolia.etherscan.io/address/0xF973768571c771AD2CA2f2671964EFce9218267B) |
+| Pedri framework | `0x627521cfe327f54fab2fbc347e65db793af7050261b23bb749d7450dee25a40f` (IPFS `QmZpT2JJCWACtkLcexuBFzTyURtUyf4GXL7CW2bHeiqREL`) |
+| Judge (EigenCompute) | App `0xa6DC8b0EA1fc8CDe102c5DFF7F599a0Ec51e70FA` · IP `34.158.46.65:3001` · [attestation](https://verify-sepolia.eigencloud.xyz/app/0xa6DC8b0EA1fc8CDe102c5DFF7F599a0Ec51e70FA) |
+
+## Frameworks
+
+A framework is a content-addressed tarball with three required files:
+
+- `framework.md` — instructions for the AI judge: scope, decision rules, hard constraints, expected output schema
+- `manifest.json` — pinned model id, sampling params (temperature, seed, top_p, max_tokens), prompt template, evidence schema reference
+- `schemas/<name>.json` — JSON Schema for the evidence payload the judge expects
+
+The tarball is SHA-256'd to produce `framework_id`. The registry stores `id → (uri, author, metadata)` — append-only, never updated. Anyone who fetches the IPFS bytes can verify the hash matches the on-chain id.
+
+The repo ships with [`frameworks/football-player-value-v1/`](./frameworks/football-player-value-v1) as a reference. It resolves binary questions about a football player's value to their club (e.g. *"Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?"*), weighting on-pitch production, availability, role importance, market value, and tactical dependence.
+
+See [`frameworks/_template/`](./frameworks/_template) to author your own.
+
+## Repo layout
 
 ```
-src/                  Solidity sources (interfaces, core, libraries, utils)
-test/                 Foundry tests
+src/                  Solidity (Foundry, 0.8.27, via_ir)
+  interfaces/         IFrameworkRegistry, IJudgeRegistry, IMarket
+  core/               FrameworkRegistry, JudgeRegistry, Market
+  libraries/          ResolutionTypes (Verdict struct)
+  utils/              SignatureVerifier
+test/                 Foundry tests + MockJudge helper
 script/
-  deploy/             Deployment scripts
-  tasks/              Task scripts (register, create, resolve)
-  configs/            Per-network config JSON
-  outputs/            Deployment output JSON (written by deploy scripts)
-frameworks/           Framework content (one directory per framework)
-manager/              Nested TS package: pack + pin + register frameworks
+  deploy/             DeployRegistries
+  tasks/              RegisterFramework, RegisterJudge, CreateMarket
+  configs/            sepolia.json, mainnet.json
+  outputs/            Deployment records (per network)
+frameworks/           Framework content, one dir per framework
+manager/              Nested TS package — pack, pin, register framework workflows
+judge/                Nested TS package — Fastify + worker; the EigenCompute app
 ```
 
-## Contracts
+The companion repo [`interpretive-markets-backend`](https://github.com/gowthamsundaresan/interpretive-markets-backend) hosts the Postgres-backed indexer (`seeder`), the public read API, and the re-execution watcher.
 
-- `FrameworkRegistry` — append-only registry. `id = sha256(framework tarball)`.
-- `JudgeRegistry` — owner-gated binding from EigenCompute image digest → TEE-derived signer.
-- `Market` — singleton (v0 stub). Stores per-market params and accepts judge-signed verdicts. Trading mechanics deferred to v1.
-
-## Build & test
+## Build and test
 
 ```bash
 forge build
 forge test
 ```
 
-## Deploy to Sepolia
+26 tests across `FrameworkRegistry`, `JudgeRegistry`, and `Market` covering happy paths, revert conditions, signature recovery, and double-resolve / double-dispute guards.
 
-You need a `.env` (copy `.env.example`):
+## Deploy your own instance
 
-```
-SEPOLIA_RPC_URL=https://...
-DEPLOYER_PRIVATE_KEY=0x...
-PINATA_JWT=...                  # only needed for the manager flow
-```
-
-Edit `script/configs/sepolia.json` to set the desired `owner` for `JudgeRegistry` (leave empty to default to the deployer).
+For forking the system to your own network or chain.
 
 ```bash
+cp .env.example .env
+# fill SEPOLIA_RPC_URL + DEPLOYER_PRIVATE_KEY + PINATA_JWT
 source .env
+
+# 1. Deploy registries + market
 forge script script/deploy/DeployRegistries.s.sol:DeployRegistries \
   --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
   --sig "run(string)" -- "sepolia"
-```
 
-This writes `script/outputs/sepolia/deployment.json` with the deployed addresses.
-
-## Publish a framework
-
-The `manager/` package packs a framework directory, pins it to IPFS via Pinata, and registers the resulting hash + URI on-chain.
-
-```bash
-cd manager
-cp .env.example .env   # fill in NETWORK, *_RPC_URL, DEPLOYER_PRIVATE_KEY, PINATA_JWT
-npm install
+# 2. Publish a framework (pack + pin to IPFS + register on-chain)
+cd manager && npm install
 npm run publish-framework football-player-value-v1
 ```
 
-To publish every directory under `frameworks/` (skipping `_template`):
+To run the judge in EigenCompute:
 
 ```bash
-npm run publish-all
+cd judge && npm install && cp .env.example .env
+# fill JUDGE_API_KEY (any random secret), PINATA_JWT, SEPOLIA_RPC_URL
+npm run deploy   # prepare-deploy + ecloud compute app deploy
 ```
 
-Individual stages can also be run separately for debugging:
-
-```bash
-npm run pack-framework football-player-value-v1
-npm run pin-framework football-player-value-v1
-npm run register-framework <id> <ipfs://cid>
-```
-
-## Run the judge (EigenCompute app)
-
-The `judge/` nested package is a Fastify + worker app. It accepts `POST /resolve/:marketId` (auth-gated), runs the full pipeline (load framework → fetch data → call EigenAI → upload bundle → post verdict on-chain), and exposes `GET /resolve/:marketId` for status.
-
-The judge depends on `@interpretive/shared` from the sibling `interpretive-markets-backend` repo via a plain symlink (no `npm link` / `bun link`).
-
-```bash
-cd judge
-cp .env.example .env   # fill in MNEMONIC, JUDGE_API_KEY, EIGENAI_API_KEY, SEPOLIA_RPC_URL, PINATA_JWT, DEPLOYMENT_FILE
-npm install
-npm run link-shared    # creates node_modules/@interpretive/shared → ../../../../interpretive-markets-backend/packages/shared
-npm run dev            # local: tsx watch
-# or
-npm run build && npm start
-```
-
-To deploy as an EigenCompute app, `judge/Dockerfile` is set up for `linux/amd64`. The `judge/ecloud.yaml` declares the runtime + secrets. Build context must include both this repo and `interpretive-markets-backend/` so the symlink resolves inside the image:
-
-```bash
-cd /Users/gowtham/Projects   # parent of both repos
-docker build -f interpretive-markets/judge/Dockerfile -t interpretive-judge:v0 .
-# then: ecloud compute app deploy   (per EigenCloud CLI)
-```
-
-After deploying, record the image digest and register it in `JudgeRegistry`:
+Note your TEE-derived judge signer from the boot logs, fund it with a small amount of Sepolia ETH (it pays gas for `resolve()`), then register the image digest → signer mapping:
 
 ```bash
 forge script script/tasks/RegisterJudge.s.sol:RegisterJudge \
@@ -112,90 +130,42 @@ forge script script/tasks/RegisterJudge.s.sol:RegisterJudge \
   --sig "run(string,bytes32,address)" -- "sepolia" <imageDigest> <signerAddress>
 ```
 
-The judge's signer address is logged at startup (`"judge running with signer 0x…"`). It's derived from `MNEMONIC` via viem's `mnemonicToAccount` — in EigenCompute production, that mnemonic comes from `process.env.MNEMONIC` injected into the TEE by KMS.
-
-## End-to-end publish runbook (v0)
-
-Assumes both `interpretive-markets` and `interpretive-markets-backend` are cloned as siblings.
+Create a market with a framework, evidence URL, and resolution time:
 
 ```bash
-# 0. install ecloud cli + foundry deps
-npm i -g @layr-labs/ecloud-cli
-ecloud auth login
-ecloud billing subscribe
-
-# 1. deploy contracts to sepolia
-cd interpretive-markets
-cp .env.example .env   # fill SEPOLIA_RPC_URL + DEPLOYER_PRIVATE_KEY (+ETHERSCAN_API_KEY optional)
-source .env
-forge script script/deploy/DeployRegistries.s.sol:DeployRegistries \
-  --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
-  --sig "run(string)" -- "sepolia"
-# → script/outputs/sepolia/deployment.json now has frameworkRegistry / judgeRegistry / market addresses
-
-# 2. publish the Pedri framework (pack + pin + register)
-cd manager
-cp .env.example .env   # NETWORK=sepolia + same SEPOLIA_RPC_URL/DEPLOYER_PRIVATE_KEY + PINATA_JWT
-npm install
-npm run publish-framework football-player-value-v1
-# → frameworkId logged + on-chain registration confirmed
-
-# 3. bring up backend (supabase + api + seeder + watcher)
-cd ../../interpretive-markets-backend
-cp .env.example .env   # paste Supabase DATABASE_URL (pgbouncer, :6543) + DIRECT_URL (:5432)
-nvm exec 22 npm install
-nvm exec 22 npm run prisma:migrate -w @interpretive/prisma
-# fill each package's .env (same Supabase URLs + DEPLOYMENT_FILE = absolute path to
-# ../interpretive-markets/script/outputs/sepolia/deployment.json)
-# in separate terminals:
-nvm exec 22 npm run dev -w @interpretive/api      # 3000
-nvm exec 22 npm run dev -w @interpretive/seeder
-nvm exec 22 npm run dev -w @interpretive/watcher
-
-# 4. build + deploy judge to EigenCompute
-cd ../interpretive-markets/judge
-cp .env.example .env   # MNEMONIC (local only), JUDGE_API_KEY, EIGENAI_API_KEY, SEPOLIA_RPC_URL, PINATA_JWT, DEPLOYMENT_FILE
-npm install && npm run link-shared
-cd /Users/gowtham/Projects   # build context must include both repos
-docker build --platform linux/amd64 \
-  -f interpretive-markets/judge/Dockerfile \
-  -t interpretive-judge:v0 .
-ecloud compute app create --name interpretive-judge --language typescript
-ecloud compute app deploy   # records the image digest
-
-# 5. fund the judge's TEE-derived signer address with ~0.01 Sepolia ETH
-#    (the judge logs it at startup; resolve() costs gas)
-
-# 6. register the judge image digest → signer mapping on-chain
-cd ../interpretive-markets
-forge script script/tasks/RegisterJudge.s.sol:RegisterJudge \
-  --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
-  --sig "run(string,bytes32,address)" -- "sepolia" <imageDigest> <judgeSignerAddress>
-
-# 7. create the Pedri market (resolutionTime in the past so it's immediately resolvable)
 cd manager
 npm run create-market \
-  "Is Erling Haaland more valuable to Manchester City than Kylian Mbappe is to Real Madrid?" \
+  "Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?" \
   "football-player-value-v1" \
-  "https://<your-api-host>/api/v1/evidence/haaland-mbappe-2024" \
-  "$(($(date +%s) - 60))" \
+  "https://<api-host>/api/v1/evidence/haaland-mbappe-2024" \
+  $(( $(date +%s) - 60 )) \
   "<imageDigest>"
-# → marketId logged
-
-# 8. trigger resolution
-curl -X POST https://<judge-host>/resolve/<marketId> -H "x-api-key: $JUDGE_API_KEY"
-# → 202 Accepted, judge runs the pipeline
-
-# 9. observe
-curl http://localhost:3000/api/v1/markets/<marketId>             # seeder picks it up within 30s
-curl http://localhost:3000/api/v1/markets/<marketId>/verdict     # outcome + confidence + bundleRef
-# watcher polls every 60s — should flip reExecStatus from `pending` → `verified`
 ```
 
-If step 9 shows `reExecStatus: verified` then the determinism story works end-to-end and v0 is live.
+Trigger resolution:
 
-## What's next
+```bash
+curl -X POST https://<judge-host>/resolve/<marketId> -H "x-api-key: $JUDGE_API_KEY"
+```
 
-- `interpretive-markets-backend` — Postgres-backed API, chain indexer (seeder), and re-execution watcher (now live).
-- Step 4 (deferred): swap the judge's direct-HTTPS data fetcher (`judge/src/services/data.ts`) for Opacity zkTLS — same `evidenceUrl` indirection means no changes to market creation.
-- Step 7 (deferred): MarketFactory + YES/NO pool mechanics + settlement.
+The judge runs the pipeline, posts the verdict on-chain. The watcher picks it up and verifies via TEE attestation (gateway mode) or byte-equality re-execution (EigenAI mode).
+
+## Inference paths
+
+The judge supports two modes via `INFERENCE_PATH`:
+
+- **`gateway`** (default) — uses `@layr-labs/ai-gateway-provider` + Vercel AI SDK, routing to commodity LLMs (Claude, GPT) via TEE-attested JWT. No API key needed; works inside EigenCompute out of the box. Not bit-exact reproducible — verifiability comes from the TEE attestation of the judge image + signed verdict.
+- **`eigenai`** — direct call to EigenAI's deterministic inference API (`X-API-Key` auth, currently allowlist-gated). Bit-exact reproducible: any watcher can re-run the same prompt and SHA-256-match the response. Required for the full optimistic re-execution dispute model.
+
+Frameworks pin a `model.id`. For `gateway` mode use a provider-prefixed model id like `anthropic/claude-sonnet-4.6`. For `eigenai` mode use a supported deterministic model like `gpt-oss-120b-f16`.
+
+## Roadmap
+
+- **Opacity zkTLS for evidence fetching** — the judge currently fetches evidence over plain HTTPS. Swapping to Opacity makes the evidence cryptographically notarized so re-executors don't have to trust the data source.
+- **Market mechanics** — current `Market` is a stub. Next: `MarketFactory` + YES/NO LMSR or CPMM pools + settlement using the on-chain verdict.
+- **EigenAI mainnet allowlist** — for v0 the judge defaults to gateway mode; switching to deterministic EigenAI is a one-env-var change once allowlist access lands.
+- **Cloud courts** — generalizing the framework registry to arbitrate disputes between sovereign agents, with framework reputation, versioning, and challenge mechanics.
+
+## License
+
+MIT.
