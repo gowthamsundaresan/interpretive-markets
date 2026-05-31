@@ -4,3 +4,5 @@ dist
 .env.local
 .git
 *.log
+_vendored_shared/node_modules
+_vendored_shared/dist
