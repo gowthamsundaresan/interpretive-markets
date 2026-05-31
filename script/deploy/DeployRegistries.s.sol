@@ -28,12 +28,12 @@ contract DeployRegistries is Script {
 
         vm.stopBroadcast();
 
-        string memory out;
-        out = out.serialize("network", network);
-        out = out.serialize("chainId", block.chainid);
-        out = out.serialize("frameworkRegistry", address(frameworks));
-        out = out.serialize("judgeRegistry", address(judges));
-        out = out.serialize("market", address(market));
+        string memory obj = "deployment";
+        vm.serializeString(obj, "network", network);
+        vm.serializeUint(obj, "chainId", block.chainid);
+        vm.serializeAddress(obj, "frameworkRegistry", address(frameworks));
+        vm.serializeAddress(obj, "judgeRegistry", address(judges));
+        string memory out = vm.serializeAddress(obj, "market", address(market));
 
         string memory outPath = string.concat("script/outputs/", network, "/deployment.json");
         vm.writeJson(out, outPath);
