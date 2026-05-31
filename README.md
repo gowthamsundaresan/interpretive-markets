@@ -65,25 +65,6 @@ The repo ships with [`frameworks/football-player-value-v1/`](./frameworks/footba
 
 See [`frameworks/_template/`](./frameworks/_template) to author your own.
 
-## Repo layout
-
-```
-src/                  Solidity (Foundry, 0.8.27, via_ir)
-  interfaces/         IFrameworkRegistry, IJudgeRegistry, IMarket
-  core/               FrameworkRegistry, JudgeRegistry, Market
-  libraries/          ResolutionTypes (Verdict struct)
-  utils/              SignatureVerifier
-test/                 Foundry tests + MockJudge helper
-script/
-  deploy/             DeployRegistries
-  tasks/              RegisterFramework, RegisterJudge, CreateMarket
-  configs/            sepolia.json, mainnet.json
-  outputs/            Deployment records (per network)
-frameworks/           Framework content, one dir per framework
-manager/              Nested TS package — pack, pin, register framework workflows
-judge/                Nested TS package — Fastify + worker; the EigenCompute app
-```
-
 The companion repo [`interpretive-markets-backend`](https://github.com/gowthamsundaresan/interpretive-markets-backend) hosts the Postgres-backed indexer (`seeder`), the public read API, and the re-execution watcher.
 
 ## Build and test
@@ -93,15 +74,12 @@ forge build
 forge test
 ```
 
-26 tests across `FrameworkRegistry`, `JudgeRegistry`, and `Market` covering happy paths, revert conditions, signature recovery, and double-resolve / double-dispute guards.
-
 ## Deploy your own instance
 
 For forking the system to your own network or chain.
 
 ```bash
 cp .env.example .env
-# fill SEPOLIA_RPC_URL + DEPLOYER_PRIVATE_KEY + PINATA_JWT
 source .env
 
 # 1. Deploy registries + market
@@ -118,7 +96,6 @@ To run the judge in EigenCompute:
 
 ```bash
 cd judge && npm install && cp .env.example .env
-# fill JUDGE_API_KEY (any random secret), PINATA_JWT, SEPOLIA_RPC_URL
 npm run deploy   # prepare-deploy + ecloud compute app deploy
 ```
 
