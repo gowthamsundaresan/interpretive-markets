@@ -6,9 +6,11 @@
 	"main": "./dist/index.js",
 	"scripts": {
 		"build": "tsc",
-		"start": "node dist/index.js",
+		"start": "tsx ./src/index.ts",
 		"dev": "tsx watch --clear-screen=false ./src/index.ts",
-		"link-shared": "mkdir -p node_modules/@interpretive && ln -sfn ../../../../interpretive-markets-backend/packages/shared node_modules/@interpretive/shared"
+		"link-shared": "mkdir -p node_modules/@interpretive && ln -sfn ../../../../interpretive-markets-backend/packages/shared node_modules/@interpretive/shared",
+		"prepare-deploy": "rm -rf _vendored_shared && cp -r ../../interpretive-markets-backend/packages/shared _vendored_shared && rm -rf _vendored_shared/node_modules _vendored_shared/dist && cp ../script/outputs/sepolia/deployment.json deployment.json",
+		"deploy": "npm run prepare-deploy && ecloud compute app deploy --name interpretive-judge --dockerfile Dockerfile --env-file .env --instance-type g1-micro-1v --image-ref gowthamsundaresan/interpretive-judge:latest --log-visibility private --skip-profile --resource-usage-monitoring enable --force"
 	},
 	"dependencies": {
 		"@fastify/env": "^4.4.0",
