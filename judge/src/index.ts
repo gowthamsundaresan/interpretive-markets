@@ -34,6 +34,16 @@ async function start() {
             host: server.config.SERVER_HOST
         })
         server.log.info(`judge running with signer ${server.judgeAccount.address} on ${server.config.NETWORK}`)
+        server.log.info(
+            {
+                hasKmsServerUrl: !!process.env.KMS_SERVER_URL,
+                hasKmsPublicKey: !!process.env.KMS_PUBLIC_KEY,
+                hasKmsAuthJwt: !!process.env.KMS_AUTH_JWT,
+                eigenGatewayUrl: process.env.EIGEN_GATEWAY_URL ?? '(default)',
+                kmsServerUrl: process.env.KMS_SERVER_URL ?? null
+            },
+            'eigencloud env probe'
+        )
 
         startResolveWorker({ queue, config: server.config, logger }).catch((err) => {
             server.log.error(err, 'resolve worker crashed')

@@ -1,0 +1,96 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "PlayerValueDossierV1",
+    "description": "Mixed structured + unstructured evidence dossier for player-value resolution. The shape is intentionally permissive: most fields are optional and free-form text is expected. The framework prose (framework.md) is the source of truth for how to weigh dossier contents — this schema only constrains the envelope so judges and watchers can parse it the same way.",
+    "type": "object",
+    "required": ["asOf", "subjects"],
+    "properties": {
+        "asOf": {
+            "type": "string",
+            "format": "date",
+            "description": "Date the evidence snapshot was taken"
+        },
+        "subjects": {
+            "type": "object",
+            "description": "Keyed by player name. Every player referenced in the market question should appear as a key.",
+            "additionalProperties": { "$ref": "#/$defs/subject" }
+        },
+        "context_notes": {
+            "type": "string",
+            "description": "Optional top-level context about the broader situation (team, season, contending alternatives)."
+        }
+    },
+    "$defs": {
+        "subject": {
+            "type": "object",
+            "required": ["club", "position"],
+            "properties": {
+                "club": { "type": "string" },
+                "position": { "type": "string" },
+                "age": { "type": "integer", "minimum": 14 },
+                "season": { "type": "string" },
+                "stats": {
+                    "type": "object",
+                    "description": "Free-form structured stats. Common keys: season, recent5, trailing12m. Inner fields vary by position — refer to framework.md.",
+                    "additionalProperties": true
+                },
+                "match_reports": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["date", "excerpt"],
+                        "properties": {
+                            "date": { "type": "string", "format": "date" },
+                            "opponent": { "type": "string" },
+                            "competition": { "type": "string" },
+                            "excerpt": { "type": "string" },
+                            "source": { "type": "string" }
+                        }
+                    }
+                },
+                "manager_quotes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["quote"],
+                        "properties": {
+                            "date": { "type": "string", "format": "date" },
+                            "manager": { "type": "string" },
+                            "quote": { "type": "string" },
+                            "source": { "type": "string" }
+                        }
+                    }
+                },
+                "scout_notes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["note"],
+                        "properties": {
+                            "author": { "type": "string" },
+                            "date": { "type": "string", "format": "date" },
+                            "note": { "type": "string" }
+                        }
+                    }
+                },
+                "valuation_history": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["value_eur"],
+                        "properties": {
+                            "date": { "type": "string" },
+                            "value_eur": { "type": "number", "minimum": 0 },
+                            "source": { "type": "string" },
+                            "note": { "type": "string" }
+                        }
+                    }
+                },
+                "context_notes": {
+                    "type": "string",
+                    "description": "Per-subject context: injury status, contract, tactical role, squad alternatives."
+                }
+            }
+        }
+    }
+}

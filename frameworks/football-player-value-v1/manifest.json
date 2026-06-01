@@ -1,7 +1,7 @@
 {
     "name": "football-player-value-v1",
-    "version": "1.1.0",
-    "description": "Resolves binary questions about a football player's value to their club.",
+    "version": "1.2.0",
+    "description": "Resolves binary questions about a football player's value to their club via interpretive synthesis over a mixed structured + unstructured dossier.",
     "extends": null,
     "applicableTo": ["player_value", "player_ranking"],
     "model": {
@@ -11,22 +11,26 @@
             "temperature": 0,
             "topP": 1.0,
             "seed": 42,
-            "maxTokens": 1500
+            "maxTokens": 2000
         }
     },
-    "evidenceSchema": "schemas/footballStatsV1.json",
+    "evidenceSchema": "schemas/dossierV1.json",
     "outputSchema": {
         "type": "object",
-        "required": ["outcome", "confidence", "reasoning", "scorecard"],
+        "required": ["outcome", "confidence", "rationale"],
         "properties": {
             "outcome": { "type": "integer", "enum": [0, 1, 2] },
             "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-            "reasoning": { "type": "string", "maxLength": 2400 },
-            "scorecard": { "type": "object" }
+            "rationale": { "type": "string", "maxLength": 2400 },
+            "citations": {
+                "type": "array",
+                "description": "Optional. Dossier fields the judge leaned on, e.g. 'Pedri.manager_quotes[0]', 'Pedri.scout_notes[1]'.",
+                "items": { "type": "string" }
+            }
         }
     },
     "promptTemplate": {
         "system": "framework.md",
-        "userTemplate": "question: {{question}}\n\nevidence:\n{{evidence_json}}"
+        "userTemplate": "Question: {{question}}\n\nDossier:\n{{evidence_json}}\n\nProduce your verdict as a single JSON object matching the output schema. Cite specific dossier fields you relied on."
     }
 }
