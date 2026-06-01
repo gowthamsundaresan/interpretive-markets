@@ -5,6 +5,21 @@
     "type": "object",
     "required": ["asOf", "subjects"],
     "properties": {
+        "$schema": {
+            "type": "string",
+            "format": "uri",
+            "description": "Optional self-link to the dossier schema (this file). Lets dossier consumers verify the shape without out-of-band coordination."
+        },
+        "$framework": {
+            "type": "object",
+            "description": "Optional pointer to the on-chain framework this dossier is shaped for — id, IPFS uri, slug, version. Establishes provenance.",
+            "properties": {
+                "id": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+                "ipfs": { "type": "string" },
+                "slug": { "type": "string" },
+                "version": { "type": "string" }
+            }
+        },
         "asOf": {
             "type": "string",
             "format": "date",
@@ -18,6 +33,11 @@
         "context_notes": {
             "type": "string",
             "description": "Optional top-level context about the broader situation (team, season, contending alternatives)."
+        },
+        "context_sources": {
+            "type": "array",
+            "description": "Optional links backing the context_notes — same shape as per-item source_url pattern, but at the dossier level.",
+            "items": { "$ref": "#/$defs/sourceLink" }
         }
     },
     "$defs": {
@@ -31,7 +51,7 @@
                 "season": { "type": "string" },
                 "stats": {
                     "type": "object",
-                    "description": "Free-form structured stats. Common keys: season, recent5, trailing12m. Inner fields vary by position — refer to framework.md.",
+                    "description": "Free-form structured stats. Common keys: season, recent5, trailing12m. Inner fields vary by position — refer to framework.md. A `sources` array of {label,url} may be attached so judges/watchers can trace the upstream stat provider.",
                     "additionalProperties": true
                 },
                 "match_reports": {
@@ -44,7 +64,12 @@
                             "opponent": { "type": "string" },
                             "competition": { "type": "string" },
                             "excerpt": { "type": "string" },
-                            "source": { "type": "string" }
+                            "source": { "type": "string" },
+                            "source_url": {
+                                "type": "string",
+                                "format": "uri",
+                                "description": "Upstream URL the excerpt was drawn from. zkTLS proofs (v1) will attest to the response from this URL."
+                            }
                         }
                     }
                 },
@@ -57,7 +82,8 @@
                             "date": { "type": "string", "format": "date" },
                             "manager": { "type": "string" },
                             "quote": { "type": "string" },
-                            "source": { "type": "string" }
+                            "source": { "type": "string" },
+                            "source_url": { "type": "string", "format": "uri" }
                         }
                     }
                 },
@@ -69,7 +95,8 @@
                         "properties": {
                             "author": { "type": "string" },
                             "date": { "type": "string", "format": "date" },
-                            "note": { "type": "string" }
+                            "note": { "type": "string" },
+                            "source_url": { "type": "string", "format": "uri" }
                         }
                     }
                 },
@@ -82,6 +109,7 @@
                             "date": { "type": "string" },
                             "value_eur": { "type": "number", "minimum": 0 },
                             "source": { "type": "string" },
+                            "source_url": { "type": "string", "format": "uri" },
                             "note": { "type": "string" }
                         }
                     }
@@ -90,6 +118,14 @@
                     "type": "string",
                     "description": "Per-subject context: injury status, contract, tactical role, squad alternatives."
                 }
+            }
+        },
+        "sourceLink": {
+            "type": "object",
+            "required": ["url"],
+            "properties": {
+                "label": { "type": "string" },
+                "url": { "type": "string", "format": "uri" }
             }
         }
     }
