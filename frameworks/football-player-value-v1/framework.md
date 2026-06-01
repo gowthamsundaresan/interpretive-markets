@@ -93,9 +93,6 @@ Return a single JSON object:
 - `outcome`: `1` for YES, `0` for NO, `2` if the dossier doesn't contain enough Tier 1 / Tier 2 evidence to decide.
 - `confidence`: 0.0–1.0. If you find yourself below 0.55, prefer `outcome: 2`. If your reasoning leans on Tier 3 evidence, cap confidence at 0.65.
 - `rationale`: 2–4 sentences. Concise. **State which tier of evidence drove the call** (e.g. "Tier 1 on/off splits agree with Tier 2 scout analysis; manager quotes are consistent but not load-bearing"). Avoid restating the outcome.
-- `citations`: dotted paths into the dossier. Required to follow these conventions:
-    - **Count: aim for 6–10.** Fewer load-bearing citations are easier for an auditor to replay than a dump of every dossier field touched. Confidence signals breadth; citations should signal weight.
-    - **Stats must be cited per subject.** Headline production claims in your rationale ("Golden Boot in a tough year", "100 PL goals fastest ever", "Pichichi leader") live in `Subject.stats.season.notes` and `Subject.team_share` / `Subject.on_off_splits`. Include at least one citation per subject pointing at the concrete stats path that backs each production claim. Do not let citations default to scout notes and manager quotes — those are confirmatory, not load-bearing.
-    - **Order by argumentative priority, per subject.** Within each subject, order: `stats` → `on_off_splits` / `team_share` → `match_reports` → `scout_notes` → `manager_quotes` → `context_notes`. Subject A fully, then subject B fully. This mirrors how a reader parses the argument; reversed orderings (quotes → stats) read as if the rationale started from social proof.
+- `citations`: optional. Dotted paths into the dossier you relied on most. Helps re-executors and auditors trace your reasoning.
 
 Keep the rationale terse — it is part of the on-chain verdict and will be replayed for verification. Extra prose changes the hash.
