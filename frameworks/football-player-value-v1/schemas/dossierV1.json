@@ -54,6 +54,81 @@
                     "description": "Free-form structured stats. Common keys: season, recent5, trailing12m. Inner fields vary by position — refer to framework.md. A `sources` array of {label,url} may be attached so judges/watchers can trace the upstream stat provider.",
                     "additionalProperties": true
                 },
+                "on_off_splits": {
+                    "type": "object",
+                    "description": "TIER 1 (PRIMARY) evidence. Team output with the player on the pitch vs off the pitch. The single most direct measurement of value-to-club. Include sample sizes so the reader can judge significance.",
+                    "properties": {
+                        "with": {
+                            "type": "object",
+                            "description": "Team output during the player's on-pitch minutes (or matches started).",
+                            "additionalProperties": true
+                        },
+                        "without": {
+                            "type": "object",
+                            "description": "Team output during the player's off-pitch minutes (or matches missed).",
+                            "additionalProperties": true
+                        },
+                        "sample": {
+                            "type": "object",
+                            "description": "Sample sizes for each side (minutes, matches) so the delta can be weighted.",
+                            "additionalProperties": true
+                        },
+                        "delta_summary": { "type": "string" },
+                        "sources": {
+                            "type": "array",
+                            "items": { "$ref": "#/$defs/sourceLink" }
+                        }
+                    }
+                },
+                "substitution_patterns": {
+                    "type": "object",
+                    "description": "TIER 1. How the manager actually uses the player: start rate in big games, removal order when chasing/protecting, late-game introduction as a control move. Managers reveal valuation through choices, not words.",
+                    "properties": {
+                        "big_game_start_rate": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "average_minute_substituted_off": { "type": "number" },
+                        "removed_first_when_chasing_pct": { "type": "number" },
+                        "protected_when_winning_pct": { "type": "number" },
+                        "summary": { "type": "string" },
+                        "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceLink" } }
+                    }
+                },
+                "team_share": {
+                    "type": "object",
+                    "description": "TIER 1. Share-of-team metrics: % of team xG, % progressive passes, % final-third touches. Captures load-bearing without manager spin.",
+                    "properties": {
+                        "xg_involvement_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "goals_pct_of_team": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "assists_pct_of_team": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "progressive_passes_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "final_third_touches_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "minutes_share_pct": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "summary": { "type": "string" },
+                        "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceLink" } }
+                    }
+                },
+                "contract_signals": {
+                    "type": "object",
+                    "description": "TIER 2. What the club's wallet says (distinct from what the manager says): salary share of total wage bill, release clause, recent contract length, peer-club bids actually received.",
+                    "properties": {
+                        "salary_pct_of_wage_bill": { "type": "number", "minimum": 0, "maximum": 1 },
+                        "release_clause_eur": { "type": "number", "minimum": 0 },
+                        "contract_end": { "type": "string" },
+                        "recent_bids": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "from_club": { "type": "string" },
+                                    "amount_eur": { "type": "number" },
+                                    "date": { "type": "string" },
+                                    "outcome": { "type": "string" }
+                                }
+                            }
+                        },
+                        "summary": { "type": "string" },
+                        "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceLink" } }
+                    }
+                },
                 "match_reports": {
                     "type": "array",
                     "items": {
@@ -75,6 +150,7 @@
                 },
                 "manager_quotes": {
                     "type": "array",
+                    "description": "TIER 3 (DECORATIVE). Managers have direct conflicts of interest — see framework.md. Include for colour and weak confirmation; never as load-bearing argument.",
                     "items": {
                         "type": "object",
                         "required": ["quote"],

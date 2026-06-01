@@ -3,8 +3,8 @@
     "question": "Is Erling Haaland more valuable to Manchester City than Kylian Mbappe is to Real Madrid?",
     "expectedOutcome": 1,
     "expectedConfidenceMin": 0.65,
-    "expectedRationaleShape": "Should cite Haaland's irreplaceability under a struggling City (Guardiola quote + on/off scoring rate), Mbappe's contested integration into Madrid's system (Lowe scout note), and rate Haaland higher on the load-bearing dimension despite both being elite producers.",
-    "notes": "Worked example for framework authors and auditors. Synthetic dossier approximating 2024-25 half-season. The interesting feature: both players have similar transfer-market valuations (€180M each), so the framework cannot fall back on market price as a tiebreaker — it has to actually weigh irreplaceability and system-fit, which is the point.",
+    "expectedRationaleShape": "Should lead with Tier 1 evidence (on/off splits, team-share metrics) showing Haaland's structural load-bearing is higher than Mbappé's at Madrid — even at similar individual output. Manager quotes and scout notes are confirmatory only, never load-bearing under v1.3.0.",
+    "notes": "Worked example for framework v1.3.0. Synthetic dossier approximating 2024-25 half-season. Both players have similar transfer-market valuations (€180M) — the framework cannot fall back on price as a tiebreaker. It has to weigh Tier 1 primary evidence: who actually moves their team's output when on the pitch.",
     "evidence": {
         "asOf": "2024-12-31",
         "subjects": {
@@ -16,46 +16,50 @@
                 "stats": {
                     "season": {
                         "competition": "Premier League + UCL + Cup",
-                        "appearances": 22,
-                        "starts": 21,
-                        "minutes": 1840,
-                        "goals": 19,
-                        "assists": 3,
+                        "apps": { "premierLeague": 22 },
+                        "minutes": { "premierLeague": 1840 },
+                        "goals": { "premierLeague": 19, "allCompetitions": 27 },
+                        "assists": { "premierLeague": 3 },
                         "xG": 17.4,
-                        "xA": 2.1,
-                        "shotsPer90": 4.2,
-                        "touchesInBoxPer90": 8.1
-                    },
-                    "trailing12m": {
-                        "appearances": 48,
-                        "minutes": 4010,
-                        "goals": 41,
-                        "assists": 7,
-                        "xG": 38.2,
-                        "xA": 5.4
+                        "xA": 2.1
                     }
+                },
+                "on_off_splits": {
+                    "with": { "team_goals_per_90": 2.2, "ppg_premier_league": 2.1 },
+                    "without": { "team_goals_per_90": 1.4, "ppg_premier_league": 1.7 },
+                    "sample": { "with_matches_pl": 22, "without_matches_pl": 5 },
+                    "delta_summary": "Team scoring drops ~36% in his off-minutes. PPG drops ~0.4. Even though City's overall season is strong, his individual on/off footprint is unusually large for a striker because City struggle to convert chances created by Foden/De Bruyne without him."
+                },
+                "substitution_patterns": {
+                    "big_game_start_rate": 0.92,
+                    "average_minute_substituted_off": 84,
+                    "removed_first_when_chasing_pct": 0.0,
+                    "summary": "Started 11/12 big games. Never removed first when chasing. Pep treats him as the only realistic source of goals in tight matches."
+                },
+                "team_share": {
+                    "goals_pct_of_team": 0.43,
+                    "xg_involvement_pct": 0.4,
+                    "minutes_share_pct": 0.78,
+                    "summary": "43% of City's PL goals scored or assisted by Haaland in the half-season. xG-involvement 40%. The team's attacking output is a Haaland function."
+                },
+                "contract_signals": {
+                    "contract_end": "2027",
+                    "summary": "On long-term deal. ~12% of wage bill. No realistic exit pressure."
                 },
                 "match_reports": [
                     {
                         "date": "2024-12-15",
                         "opponent": "Manchester United",
                         "competition": "Premier League",
-                        "excerpt": "Two goals in a 2-1 derby win. Both from low expected-goal positions — the kind of finishing that has carried City through a structurally rough season. Took 6 shots, completed only 14 passes.",
+                        "excerpt": "Two goals in a 2-1 derby win. Both from low expected-goal positions — the kind of finishing carrying City through a structurally rough season.",
                         "source": "BBC Sport"
-                    },
-                    {
-                        "date": "2024-11-23",
-                        "opponent": "Tottenham",
-                        "competition": "Premier League",
-                        "excerpt": "Scored once in a 4-0 loss. Isolated for stretches as City's midfield collapsed under Spurs' press. The goal was a poacher's finish from a Doku cross.",
-                        "source": "The Guardian"
                     }
                 ],
                 "manager_quotes": [
                     {
                         "date": "2024-12-16",
                         "manager": "Pep Guardiola",
-                        "quote": "Erling carries us. Without his goals we would be eighth, maybe ninth. That is the truth right now.",
+                        "quote": "Erling carries us. Without his goals we would be eighth, maybe ninth.",
                         "source": "Post-derby press conference"
                     }
                 ],
@@ -63,55 +67,59 @@
                     {
                         "author": "Sam McGuire (Total Football Analysis)",
                         "date": "2024-12-10",
-                        "note": "Haaland's xG per 90 (0.85) leads the Premier League by a wide margin. His non-shot involvement remains low — he is fundamentally a finisher in a system that creates for him. In a struggling City, his irreplaceability is the highest it's been: City scoring rate drops 38% in his off-minutes this season."
+                        "note": "Tier 1 case is strong: 43% goals share, ~36% on/off team-scoring delta, structural irreplaceability rising as City's midfield creation tools (Foden, De Bruyne) struggle to convert without him."
                     }
                 ],
                 "valuation_history": [
                     { "date": "2024-01", "value_eur": 180000000, "source": "Transfermarkt" },
                     { "date": "2024-12", "value_eur": 180000000, "source": "Transfermarkt" }
                 ],
-                "context_notes": "Contract to 2034 (extended summer 2024), no realistic exit pressure. Brief knock in March 2024 (~3 weeks out), otherwise fully fit. City's rough season has if anything increased his relative importance."
+                "context_notes": "Contract to 2027 at the time. ~12% of City's wage bill. Brief knock in March 2024 (~3 weeks out). City season described as the toughest of the Guardiola era."
             },
             "Kylian Mbappe": {
                 "club": "Real Madrid",
                 "position": "FW",
                 "age": 26,
-                "season": "2024-25 (half-season)",
+                "season": "2024-25 (half-season, post-PSG)",
                 "stats": {
                     "season": {
                         "competition": "La Liga + UCL + Cup",
-                        "appearances": 21,
-                        "starts": 19,
-                        "minutes": 1700,
-                        "goals": 12,
-                        "assists": 4,
+                        "apps": { "laLiga": 21 },
+                        "minutes": { "laLiga": 1700 },
+                        "goals": { "laLiga": 12, "allCompetitions": 18 },
+                        "assists": { "laLiga": 4 },
                         "xG": 13.1,
-                        "xA": 3.6,
-                        "shotsPer90": 3.8,
-                        "touchesInBoxPer90": 6.4
-                    },
-                    "trailing12m": {
-                        "appearances": 44,
-                        "minutes": 3640,
-                        "goals": 28,
-                        "assists": 9,
-                        "xG": 27.5,
-                        "xA": 8.2
+                        "xA": 3.6
                     }
                 },
+                "on_off_splits": {
+                    "with": { "team_goals_per_90": 2.4, "ppg_la_liga": 2.2 },
+                    "without": { "team_goals_per_90": 2.25, "ppg_la_liga": 2.15 },
+                    "sample": { "with_matches_la_liga": 21, "without_matches_la_liga": 5 },
+                    "delta_summary": "Team scoring drops only ~6% in his off-minutes. PPG essentially flat. Madrid's attacking output is well-distributed — Vinicius and Bellingham continue to produce when Mbappé is unavailable. Marginal value of his minutes is meaningfully smaller than his individual numbers suggest."
+                },
+                "substitution_patterns": {
+                    "big_game_start_rate": 0.83,
+                    "average_minute_substituted_off": 72,
+                    "removed_first_when_chasing_pct": 0.25,
+                    "summary": "Started 10/12 big games. Removed first when chasing on multiple occasions — Ancelotti was willing to swap him out for tactical re-shuffles, which would not happen with Vinicius."
+                },
+                "team_share": {
+                    "goals_pct_of_team": 0.24,
+                    "xg_involvement_pct": 0.21,
+                    "minutes_share_pct": 0.71,
+                    "summary": "24% of Madrid's La Liga goals. xG-involvement 21%. Bellingham (~22%) and Vinicius (~28%) carry comparable or larger shares — Mbappé is one of three attacking focal points, not the focal point."
+                },
+                "contract_signals": {
+                    "contract_end": "2029",
+                    "summary": "Free transfer summer 2024 on a 5-year deal. ~12% of wage bill — top-tier alongside Vinicius and Bellingham."
+                },
                 "match_reports": [
-                    {
-                        "date": "2024-12-21",
-                        "opponent": "Sevilla",
-                        "competition": "La Liga",
-                        "excerpt": "Scored, assisted Vinicius, and was visibly settling into Ancelotti's system. Started central, drifted left in possession. Best individual display of his Madrid career to date.",
-                        "source": "AS"
-                    },
                     {
                         "date": "2024-11-09",
                         "opponent": "Osasuna",
                         "competition": "La Liga",
-                        "excerpt": "Quiet game; missed a clear chance and went off at 70 with the team chasing the game. Pundits questioned whether the system around Vinicius leaves him a clear role.",
+                        "excerpt": "Quiet game; missed a clear chance and went off at 70 with the team chasing. Pundits questioned whether the system around Vinicius leaves him a clear role.",
                         "source": "Marca"
                     }
                 ],
@@ -119,7 +127,7 @@
                     {
                         "date": "2024-12-22",
                         "manager": "Carlo Ancelotti",
-                        "quote": "Kylian is adjusting. The numbers will come. Real Madrid is not a club where you arrive and dominate from week one — but he will dominate.",
+                        "quote": "Kylian is adjusting. The numbers will come.",
                         "source": "Post-Sevilla press conference"
                     }
                 ],
@@ -127,21 +135,16 @@
                     {
                         "author": "Sid Lowe",
                         "date": "2024-12-15",
-                        "note": "Madrid's system is built around Vinicius on the left and Bellingham as a half-attacker. Mbappe's arrival has created friction — overlapping zones with Vinicius, fewer transitions to run into than at PSG. His ceiling is enormous but his current value to THIS Madrid side is contested."
+                        "note": "Tier 1 evidence is awkward: on/off delta only ~6%, team-share 24%, frequently removed when chasing. Headline goal tally is strong but marginal contribution to team output is small relative to Vinicius/Bellingham."
                     }
                 ],
                 "valuation_history": [
-                    { "date": "2024-06", "value_eur": 200000000, "source": "Transfermarkt", "note": "Pre-Madrid move" },
-                    {
-                        "date": "2024-12",
-                        "value_eur": 180000000,
-                        "source": "Transfermarkt",
-                        "note": "Slight adjustment downward post-transfer"
-                    }
+                    { "date": "2024-06", "value_eur": 200000000, "source": "Transfermarkt", "note": "Pre-Madrid" },
+                    { "date": "2024-12", "value_eur": 180000000, "source": "Transfermarkt" }
                 ],
-                "context_notes": "Free transfer in summer 2024. 5-year contract. Hamstring injury in September (3 weeks out). Vinicius remains the system's primary attacker; Bellingham the second focal point — Mbappe is, today, the third option in attacking sequences despite being the most expensive arrival."
+                "context_notes": "Free transfer summer 2024. 5-year contract. Hamstring injury Sept (3 weeks out). Vinicius remains primary attacker; Bellingham second focal point — Mbappé third option in attacking sequences."
             }
         },
-        "context_notes": "Half-season snapshot. The interpretive contest: Haaland is more obviously the load-bearing star of his (struggling) club; Mbappe arrived as Real Madrid's headline signing but has not yet displaced the existing system. The framework would be expected to favor Haaland on irreplaceability + production-vs-team-output even though both have similar transfer-market valuations."
+        "context_notes": "Half-season snapshot end-of-2024. Under v1.3.0 the framework leans on Tier 1 on/off and team-share evidence: Haaland's marginal contribution to City output is ~6x Mbappé's marginal contribution to Madrid output (~36% scoring delta vs ~6%, 43% goals share vs 24%). Manager quotes from both sides are present but treated as decorative."
     }
 }

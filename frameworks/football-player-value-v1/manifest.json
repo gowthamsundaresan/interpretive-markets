@@ -1,7 +1,7 @@
 {
     "name": "football-player-value-v1",
-    "version": "1.2.0",
-    "description": "Resolves binary questions about a football player's value to their club via interpretive synthesis over a mixed structured + unstructured dossier.",
+    "version": "1.3.0",
+    "description": "Resolves binary questions about a football player's value to their club via interpretive synthesis over a tiered evidence dossier (primary on/off splits and team-share metrics, secondary independent scout analysis, tertiary decorative quotes).",
     "extends": null,
     "applicableTo": ["player_value", "player_ranking"],
     "model": {
