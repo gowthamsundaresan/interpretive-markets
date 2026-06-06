@@ -2,6 +2,7 @@ cache/
 out/
 broadcast/
 docs/
+script/outputs/
 .env
 .env.local
 .env.*.local

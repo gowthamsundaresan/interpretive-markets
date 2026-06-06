@@ -1,0 +1,21 @@
+{
+    "name": "operator",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "main": "./dist/index.js",
+    "scripts": {
+        "build": "tsc",
+        "start": "tsx ./src/index.ts",
+        "dev": "tsx watch --clear-screen=false ./src/index.ts",
+        "link-shared": "mkdir -p node_modules/@interpretive && ln -sfn ../../../../interpretive-markets-backend/packages/shared node_modules/@interpretive/shared"
+    },
+    "dependencies": {
+        "dotenv": "^16.6.1"
+    },
+    "devDependencies": {
+        "@types/node": "^20.19.41",
+        "tsx": "^4.22.4",
+        "typescript": "^5.9.3"
+    }
+}

@@ -4,9 +4,11 @@ pragma solidity ^0.8.27;
 import {ResolutionTypes} from "../libraries/ResolutionTypes.sol";
 
 /// @title IMarket Interface
-/// @notice Singleton registry of interpretive markets and their verdicts. Each market pins a
-///         framework, data source, model, and prompt template at creation; resolution is gated
-///         by a signed verdict from a judge registered in the JudgeRegistry. v0 stub: no trading.
+/// @notice Singleton registry of interpretive markets on Ritual L1. Each market pins a
+///         framework + source allowlist + dossier manifest at creation; resolution flows through
+///         a single AsyncDelivery callback (`onSovereignAgentResult`) that decodes the dossier,
+///         calls the 0x0802 LLM precompile SPC inline, applies harness rules, and finalizes.
+///         v0 stub: no trading mechanics.
 interface IMarket {
     // ============================================================================
     // STRUCTS
@@ -14,37 +16,53 @@ interface IMarket {
 
     /// @notice Parameters for creating a new market
     /// @param question Human-readable question text
-    /// @param frameworkId Registered framework id (sha256 of tarball) used to evaluate
-    /// @param dataSourceSpec Opaque blob describing how the judge fetches evidence
-    /// @param modelId EigenAI model id pinned for inference (e.g. keccak256("gpt-oss-120b"))
-    /// @param promptTemplateHash Hash of the deterministic prompt template
-    /// @param resolutionTime Earliest timestamp at which the market may be resolved
-    /// @param judgeImageDigest The judge image digest authorized to resolve this market
+    /// @param frameworkId Registered framework id (sha256 of tarball)
+    /// @param sourceAllowlist URLs the investigator is permitted to fetch
+    /// @param dossierPathPrefix Required prefix for every citation (e.g. "dossier://")
+    /// @param dossierSubjects Allowed subject_ref identifiers
+    /// @param resolutionTime Earliest timestamp at which startInvestigation may be called
+    /// @param cliType Sovereign Agent harness selector (0 = Claude Code per ADR-004)
+    /// @param model LLM model identifier for the judge (e.g. "zai-org/GLM-4.7-FP8")
+    /// @param maxTurns Cap on investigator agentic turns
+    /// @param maxTokens Cap on investigator output tokens
+    /// @param callbackGasLimit Gas budget for the resolution callback (covers SPC + finalize)
+    /// @param investigationTtl Phase-1 TTL in blocks for the investigation job
     struct MarketInit {
         string question;
         bytes32 frameworkId;
-        bytes dataSourceSpec;
-        bytes32 modelId;
-        bytes32 promptTemplateHash;
+        string[] sourceAllowlist;
+        string dossierPathPrefix;
+        string[] dossierSubjects;
         uint64 resolutionTime;
-        bytes32 judgeImageDigest;
+        uint16 cliType;
+        string model;
+        uint16 maxTurns;
+        uint32 maxTokens;
+        uint256 callbackGasLimit;
+        uint256 investigationTtl;
     }
 
     /// @notice Stored record for a market
     /// @param init Immutable market parameters set at creation
     /// @param creator Address that created the market
     /// @param createdAt Block timestamp at creation
-    /// @param verdict Verdict struct populated by the judge on resolution (zero-valued until then)
-    /// @param bundleRef Pointer to the re-execution bundle on EigenDA/IPFS
-    /// @param resolvedAt Block timestamp at resolution (zero until then)
-    /// @param disputed Whether a watcher has filed a dispute against this market's verdict
+    /// @param investigationJobId AsyncJobTracker job id; bytes32(0) until startInvestigation
+    /// @param investigationStartedAt Block timestamp at startInvestigation; 0 until then
+    /// @param dossierCid IPFS CID of the dossier produced by the investigator
+    /// @param verdict Verdict struct populated on resolution callback
+    /// @param finalized True once a well-formed verdict has been applied
+    /// @param malformed True when the LLM emitted a malformed payload (challengeable, not finalized)
+    /// @param disputed True when a watcher has filed a consistency-audit dispute
     struct Market {
         MarketInit init;
         address creator;
         uint64 createdAt;
+        bytes32 investigationJobId;
+        uint64 investigationStartedAt;
+        string dossierCid;
         ResolutionTypes.Verdict verdict;
-        string bundleRef;
-        uint64 resolvedAt;
+        bool finalized;
+        bool malformed;
         bool disputed;
     }
 
@@ -55,25 +73,63 @@ interface IMarket {
     /// @notice Emitted when a market is created
     /// @param marketId Unique identifier for the market
     /// @param frameworkId Framework id used to evaluate
-    /// @param judgeImageDigest Judge image digest authorized to resolve
     /// @param creator Address that created the market
-    event MarketCreated(
-        uint256 indexed marketId,
-        bytes32 indexed frameworkId,
-        bytes32 indexed judgeImageDigest,
-        address creator
-    );
+    event MarketCreated(uint256 indexed marketId, bytes32 indexed frameworkId, address creator);
 
-    /// @notice Emitted when a verdict is posted for a market
+    /// @notice Emitted when startInvestigation submits the 0x080C call
     /// @param marketId The market id
-    /// @param signer The judge signer that produced the verdict
-    /// @param bundleRef Pointer to the re-execution bundle
-    event VerdictPosted(uint256 indexed marketId, address indexed signer, string bundleRef);
+    /// @param jobId AsyncJobTracker job id assigned by the precompile
+    /// @param requestBinding keccak256 of the canonical investigation inputs
+    event InvestigationStarted(uint256 indexed marketId, bytes32 indexed jobId, bytes32 requestBinding);
 
-    /// @notice Emitted when a watcher files a dispute against a market's verdict
+    /// @notice Emitted when AsyncDelivery hands back the investigator's result
+    /// @param marketId The market id
+    /// @param jobId The AsyncJobTracker job id
+    /// @param dossierCid IPFS CID of the produced dossier
+    event InvestigationDelivered(uint256 indexed marketId, bytes32 indexed jobId, string dossierCid);
+
+    /// @notice Emitted before the inline 0x0802 SPC judge call
+    /// @param marketId The market id
+    /// @param promptHash keccak256 of the assembled judge prompt
+    event JudgmentStarted(uint256 indexed marketId, bytes32 promptHash);
+
+    /// @notice Emitted after the 0x0802 SPC returns the completionData
+    /// @param marketId The market id
+    /// @param verdictHash keccak256 over the canonical verdict serialization
+    event JudgmentDelivered(uint256 indexed marketId, bytes32 verdictHash);
+
+    /// @notice Emitted when a HarnessRule mutates an LLM-emitted field
+    /// @param marketId The market id
+    /// @param ruleId Identifier for the rule that fired (1=confidence floor, 2=tier-3 cap, etc.)
+    event HarnessRuleFired(uint256 indexed marketId, uint8 ruleId);
+
+    /// @notice Emitted when the LLM emitted a malformed payload (range/type/citation/subject violation)
+    /// @param marketId The market id
+    /// @param reason Human-readable reason tag (e.g. "parse-failed", "confidence-out-of-range")
+    event MalformedVerdict(uint256 indexed marketId, string reason);
+
+    /// @notice Emitted when the investigator returned a dossier StorageRef with a non-IPFS platform
+    /// @dev ADR-016. Defends against an executor swapping a mutable HF dossier post-callback.
+    /// @param marketId The market id
+    /// @param offendingPlatform The platform string the investigator returned (e.g. "hf", "gcs")
+    event MalformedDossierPlatform(uint256 indexed marketId, string offendingPlatform);
+
+    /// @notice Emitted when the investigator returned a dossier StorageRef whose path is not a valid IPFS CID
+    /// @dev ADR-016. CIDv1 (bafy/bafk/bafz) and CIDv0 (Qm) are accepted; everything else is rejected.
+    /// @param marketId The market id
+    /// @param offendingCid The path string the investigator returned in artifacts[0].path
+    event MalformedDossierCid(uint256 indexed marketId, string offendingCid);
+
+    /// @notice Emitted when a well-formed verdict has been applied and the market is resolved
+    /// @param marketId The market id
+    /// @param outcome The enforced outcome code
+    /// @param confidenceBps The enforced confidence in basis points
+    event VerdictFinalized(uint256 indexed marketId, uint8 outcome, uint16 confidenceBps);
+
+    /// @notice Emitted when a watcher files a consistency-audit dispute
     /// @param marketId The market id
     /// @param disputer The address that filed the dispute
-    /// @param evidence Opaque evidence blob (e.g. counter-execution hash)
+    /// @param evidence Opaque evidence blob describing the inconsistency
     event VerdictDisputed(uint256 indexed marketId, address indexed disputer, bytes evidence);
 
     // ============================================================================
@@ -81,39 +137,36 @@ interface IMarket {
     // ============================================================================
 
     /// @notice Reverts when an unknown framework id is referenced at market creation
-    /// @param frameworkId The unregistered framework id
     error UnknownFramework(bytes32 frameworkId);
-
-    /// @notice Reverts when an unknown judge image is referenced at market creation
-    /// @param imageDigest The unregistered judge image digest
-    error UnknownJudge(bytes32 imageDigest);
 
     /// @notice Reverts when resolutionTime is not in the future at creation
     error InvalidResolutionTime();
 
     /// @notice Reverts when interacting with a non-existent market
-    /// @param marketId The unknown market id
     error UnknownMarket(uint256 marketId);
 
-    /// @notice Reverts when resolution is attempted before resolutionTime
-    /// @param marketId The market id
-    /// @param resolutionTime The earliest allowed resolution timestamp
+    /// @notice Reverts when startInvestigation is called before resolutionTime
     error TooEarly(uint256 marketId, uint64 resolutionTime);
 
-    /// @notice Reverts when resolution is attempted on an already-resolved market
-    /// @param marketId The market id
-    error AlreadyResolved(uint256 marketId);
+    /// @notice Reverts when startInvestigation is called twice for the same market
+    error InvestigationAlreadyStarted(uint256 marketId);
 
-    /// @notice Reverts when the verdict signature recovers to an unauthorized signer
-    /// @param recovered The signer recovered from the signature
-    error UnauthorizedSigner(address recovered);
+    /// @notice Reverts when the resolution callback fires for a market that has not started investigation
+    error InvestigationNotStarted(uint256 marketId);
 
-    /// @notice Reverts when a dispute is filed against an unresolved market
-    /// @param marketId The market id
+    /// @notice Reverts when the resolution callback fires after the market is already finalized
+    error AlreadyFinalized(uint256 marketId);
+
+    /// @notice Reverts when a callback is delivered with a jobId that does not match the market state
+    error JobIdMismatch(uint256 marketId, bytes32 expected, bytes32 received);
+
+    /// @notice Reverts when a non-AsyncDelivery address invokes onSovereignAgentResult
+    error Unauthorized(address caller);
+
+    /// @notice Reverts when a dispute is filed against a market that has not been delivered
     error NotResolved(uint256 marketId);
 
     /// @notice Reverts when a dispute is filed twice for the same market
-    /// @param marketId The market id
     error AlreadyDisputed(uint256 marketId);
 
     // ============================================================================
@@ -125,24 +178,22 @@ interface IMarket {
     /// @return marketId The id assigned to the new market
     function createMarket(MarketInit calldata params) external returns (uint256 marketId);
 
-    /// @notice Post a signed verdict for a market. Signature must recover to the authorized
-    ///         signer for the market's judge image digest.
+    /// @notice Submit the investigation job to the Sovereign Agent precompile (0x080C)
+    /// @dev Anyone may call after resolutionTime; AsyncJobTracker sender-lock applies per-EOA.
     /// @param marketId The market id
-    /// @param verdict The verdict struct
-    /// @param bundleRef Pointer to the re-execution bundle (EigenDA BlobKey or ipfs://<cid>)
-    /// @param signature ECDSA signature over keccak256(abi.encode(marketId, verdict, bundleRef))
-    function resolve(
-        uint256 marketId,
-        ResolutionTypes.Verdict calldata verdict,
-        string calldata bundleRef,
-        bytes calldata signature
-    ) external;
+    function startInvestigation(uint256 marketId) external;
 
-    /// @notice File a dispute against a resolved market's verdict. v0 only emits an event and
-    ///         flips the disputed flag; slashing/arbitration is deferred to v1.
+    /// @notice AsyncDelivery callback handler — the single resolution entrypoint
+    /// @dev Reverts if msg.sender != AsyncDelivery. Runs decode → SPC judge → harness → finalize
+    ///      atomically. Malformed payloads route to the dispute path via MalformedVerdict event.
+    /// @param jobId The AsyncJobTracker job id this callback delivers
+    /// @param result Phase-2 bytes payload from the Sovereign Agent precompile
+    function onSovereignAgentResult(bytes32 jobId, bytes calldata result) external;
+
+    /// @notice File a consistency-audit dispute against a delivered verdict
     /// @param marketId The market id
-    /// @param evidence Opaque evidence blob (e.g. counter-execution hash)
-    function disputeVerdict(uint256 marketId, bytes calldata evidence) external;
+    /// @param evidence Opaque evidence blob (e.g. recomputed request-binding diff)
+    function disputeAttestation(uint256 marketId, bytes calldata evidence) external;
 
     /// @notice Fetch the full market record for a given id
     /// @param marketId The market id
@@ -152,4 +203,9 @@ interface IMarket {
     /// @notice The next market id that will be assigned by createMarket
     /// @return nextId The next market id
     function nextMarketId() external view returns (uint256 nextId);
+
+    /// @notice Lookup the market id associated with an AsyncJobTracker jobId
+    /// @param jobId The AsyncJobTracker job id
+    /// @return marketId The corresponding market id; 0 when not found
+    function marketIdForJob(bytes32 jobId) external view returns (uint256 marketId);
 }

@@ -1,0 +1,26 @@
+{
+    "network": "ritual",
+    "chainId": 1979,
+    "owner": "0xF13aad6DC07f64e4EE5577f91143a78b54Bf4717",
+    "rpcUrls": {
+        "http": "https://rpc.ritualfoundation.org",
+        "ws": "wss://rpc.ritualfoundation.org"
+    },
+    "explorer": "https://explorer.ritualfoundation.org",
+    "faucet": "https://faucet.ritualfoundation.org",
+    "systemContracts": {
+        "ritualWallet": "0x532F0dF0896F353d8C3DD8cc134e8129DA2a3948",
+        "asyncJobTracker": "0xC069FFCa0389f44eCA2C626e55491b0ab045AEF5",
+        "teeServiceRegistry": "0x9644e8562cE0Fe12b4deeC4163c064A8862Bf47F",
+        "asyncDelivery": "0x5A16214fF555848411544b005f7Ac063742f39F6",
+        "modelPricingRegistry": "0x7A85F48b971ceBb75491b61abe279728F4c4384f",
+        "scheduler": "0x56e776BAE2DD60664b69Bd5F865F1180ffB7D58B",
+        "agentHeartbeat": "0xEF505E801f1Db392B5289690E2ffc20e840A3aCa",
+        "secretsAccessControl": "0xf9BF1BC8A3e79B9EBeD0fa2Db70D0513fecE32FD"
+    },
+    "precompiles": {
+        "llmInference": "0x0000000000000000000000000000000000000802",
+        "sovereignAgent": "0x000000000000000000000000000000000000080c",
+        "longHttp": "0x0000000000000000000000000000000000000805"
+    }
+}

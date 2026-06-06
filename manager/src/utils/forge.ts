@@ -11,7 +11,8 @@ export interface Deployment {
     network: string
     chainId: number
     frameworkRegistry: `0x${string}`
-    judgeRegistry: `0x${string}`
+    attestedExecutorRegistry: `0x${string}`
+    ritualSystem: `0x${string}`
     market: `0x${string}`
 }
 

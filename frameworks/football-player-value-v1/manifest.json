@@ -1,36 +1,53 @@
 {
     "name": "football-player-value-v1",
-    "version": "1.3.0",
-    "description": "Resolves binary questions about a football player's value to their club via interpretive synthesis over a tiered evidence dossier (primary on/off splits and team-share metrics, secondary independent scout analysis, tertiary decorative quotes).",
+    "version": "2.1.0",
+    "description": "Resolves binary questions about a football player's value to their club via interpretive synthesis over a tiered evidence dossier (primary on/off splits and team-share metrics, secondary independent scout analysis, tertiary decorative quotes). v2 splits the role into a Sovereign Agent investigator that builds the dossier and an LLM precompile judge that adjudicates against it. v2.1 pins the subject_ref convention for comparative questions and adds confidence calibration bands to judge.md.",
     "extends": null,
     "applicableTo": ["player_value", "player_ranking"],
     "model": {
-        "id": "anthropic/claude-sonnet-4.6",
-        "provider": "gateway",
+        "id": "zai-org/GLM-4.7-FP8",
         "sampling": {
             "temperature": 0,
             "topP": 1.0,
-            "seed": 42,
-            "maxTokens": 2000
+            "seed": 0,
+            "maxTokens": 2000,
+            "reasoningEffort": "medium"
         }
     },
     "evidenceSchema": "schemas/dossierV1.json",
     "outputSchema": {
         "type": "object",
-        "required": ["outcome", "confidence", "rationale"],
+        "required": ["outcome", "confidence_bps", "driving_tier", "subject_ref", "citations", "rationale_hash"],
+        "additionalProperties": false,
         "properties": {
             "outcome": { "type": "integer", "enum": [0, 1, 2] },
-            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-            "rationale": { "type": "string", "maxLength": 2400 },
+            "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "driving_tier": { "type": "integer", "enum": [1, 2, 3] },
+            "subject_ref": {
+                "type": "string",
+                "description": "Dossier key of the player whose comparative claim the verdict resolves in favor of (NOT the player named first in the question). See judge.md for the canonical convention and examples."
+            },
             "citations": {
                 "type": "array",
-                "description": "Optional. Dossier fields the judge leaned on, e.g. 'Pedri.manager_quotes[0]', 'Pedri.scout_notes[1]'.",
-                "items": { "type": "string" }
+                "minItems": 1,
+                "description": "Dotted dossier paths the judge relied on, each prefixed with 'dossier://'.",
+                "items": { "type": "string", "pattern": "^dossier://" }
+            },
+            "rationale_hash": {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$",
+                "description": "keccak256 of the rationale text. The text itself lives in the off-chain audit bundle."
             }
         }
     },
-    "promptTemplate": {
-        "system": "framework.md",
-        "userTemplate": "Question: {{question}}\n\nDossier:\n{{evidence_json}}\n\nProduce your verdict as a single JSON object matching the output schema. Cite specific dossier fields you relied on."
+    "roles": {
+        "investigator": {
+            "prompt": "investigator.md",
+            "tools": ["fetch_http"],
+            "skills": ["schemas/dossierV1.json", "judge.md"]
+        },
+        "judge": {
+            "prompt": "judge.md"
+        }
     }
 }

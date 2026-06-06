@@ -1,0 +1,14 @@
+{
+    "question": "Was Rodri the most valuable player to Manchester City's title-winning 2023-24 Premier League campaign?",
+    "frameworkId": "0x0edfd2d7ea52a36f36321c55e4b13297e5a62888e053ca7fdbde229f1b3ec061",
+    "sourceAllowlist": ["https://fbref.com/en/players/", "https://www.opta.com/", "https://theathletic.com/football/"],
+    "dossierPathPrefix": "dossier://",
+    "dossierSubjects": ["Rodri", "Erling Haaland"],
+    "resolutionTime": 1717730000,
+    "cliType": 0,
+    "model": "zai-org/GLM-4.7-FP8",
+    "maxTurns": 20,
+    "maxTokens": 4096,
+    "callbackGasLimit": 5000000,
+    "investigationTtl": 1000
+}

@@ -1,0 +1,18 @@
+{
+    "question": "Is Haaland Manchester City's most valuable player in the 2024-25 season?",
+    "frameworkId": "0xREPLACE_WITH_FRAMEWORK_ID_FROM_publishFramework",
+    "sourceAllowlist": [
+        "https://fbref.com/en/players/",
+        "https://www.transfermarkt.com/erling-haaland/",
+        "https://understat.com/player/"
+    ],
+    "dossierPathPrefix": "dossier://",
+    "dossierSubjects": ["haaland", "kdb", "rodri"],
+    "resolutionTime": 1762000000,
+    "cliType": 0,
+    "model": "zai-org/GLM-4.7-FP8",
+    "maxTurns": 50,
+    "maxTokens": 8192,
+    "callbackGasLimit": 5000000,
+    "investigationTtl": 6000
+}

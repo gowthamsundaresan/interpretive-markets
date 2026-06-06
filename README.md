@@ -1,10 +1,10 @@
 # interpretive-markets
 
-Prediction markets resolved by AI judges against registered evaluation frameworks. Built on EigenCloud.
+Prediction markets resolved by AI judges against registered evaluation frameworks. Built on **Ritual L1** — `0x080C` Sovereign Agent investigator + `0x0802` LLM precompile judge, glued by an async-callback `Market.sol` that runs both stages atomically in one transaction.
 
 ## Why this exists
 
-Truth comes in three flavors:
+Truth comes in three flavours:
 
 1. **Objective** — _"Roses are red."_ A fact of nature, deterministically observable.
 2. **Subjective** — _"Violets are perfection."_ The observer's own experience is the only backing. Can be described, chosen to be believed, but not transmitted.
@@ -30,118 +30,80 @@ LLMs are remarkably good at interpretation. Given a question, an evaluation fram
 
 ## How it works
 
-A market is a tuple `(question, framework_id, data_source, model_id, prompt_hash, resolution_time, judge_id)` committed on-chain at creation. All immutable. At resolution time:
+A market is a tuple `(question, frameworkId, sourceAllowlist, dossierPathPrefix, dossierSubjects, resolutionTime, cliType, model, ...)` committed on-chain at creation. All immutable. At resolution time:
 
-1. An auth-gated **judge** running in an Intel TDX TEE on EigenCompute reads the market params.
-2. It fetches the **framework** tarball from IPFS, verifies its `sha256 == framework_id` against the on-chain `FrameworkRegistry`.
-3. Fetches **evidence** via the registered data source (an HTTPS URL today; Opacity zkTLS later).
-4. Assembles a deterministic prompt and calls **EigenAI** (deterministic LLM inference) — or via the EigenCloud AI Gateway in non-deterministic mode.
-5. Uploads a **re-execution bundle** to IPFS — the full inputs, prompt, response, and SHA-256s, so a watcher can re-run the inference and verify byte equality.
-6. Signs the verdict with its **TEE-derived key** and posts it on-chain via `Market.resolve()`.
+1. The **operator** (a thin watch-and-kick service in `operator/`) deposits to `RitualWallet`, checks `AsyncJobTracker.hasPendingJobForSender`, and calls `Market.startInvestigation(marketId)`.
+2. `Market.sol` invokes `RitualSystem.investigate(...)` against the `0x080C` Sovereign Agent precompile with the framework's `investigator.md` as `systemPrompt`, the `dossierV1.json` schema + `judge.md` as `skills[]`, `tools=["fetch_http"]`, `cliType=0` (Claude Code in TEE).
+3. The Sovereign Agent (headless one-shot job inside Ritual's TEE) crawls the `sourceAllowlist`, structures the dossier into Tier 1/2/3 evidence, pins it to IPFS, **also pre-assembles the canonical judge `messagesJson`**. Returns via two-phase `AsyncDelivery` callback.
+4. `Market.onSovereignAgentResult(jobId, result)` runs in one atomic transaction: `msg.sender == ASYNC_DELIVERY` check → decode `(dossierCid, messagesJson)` → emit `InvestigationDelivered` → call `0x0802` LLM precompile SPC inline (GLM-4.7-FP8, `temperature=0`, `seed=marketId`, `reasoningEffort=medium`) → emit `JudgmentDelivered` → parse verdict via `solady-json` → apply `HarnessRules` → emit `VerdictFinalized` (or `MalformedVerdict` on parse / range / citation / subject failure).
+5. An off-chain watcher (companion backend repo) runs a consistency audit — recomputes `keccak256(abi.encode(marketId, frameworkId, question, sourceAllowlist))` and the canonical prompt hash from `judge.md + dossier + question`, cross-checks against the emitted values, and files `Market.disputeAttestation` on mismatch. **No re-execution; hash comparison only.**
 
-A separate **watcher** service polls for newly posted verdicts, pulls each re-exec bundle, re-runs the inference, and either marks it `verified` or files `disputeVerdict()` on byte mismatch.
+### Why a single callback
 
-## Live deployment
+`0x0802` is **SPC (Short Async)**, not two-phase async — result returns inline in the calling tx's receipt. The first design called for two `AsyncDelivery` callbacks (one for investigation, one for judgment); collapsing them eliminates a sender-lock window and gives the watcher one atomic transaction to audit.
 
-|                      | Sepolia                                                                                                                                                                         |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `FrameworkRegistry`  | [`0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d`](https://sepolia.etherscan.io/address/0x2eC5ddAfB0b6e6e25CE5e906CB3Cb3cf3F6dB88d)                                                 |
-| `JudgeRegistry`      | [`0x17993708486461A22Fdd2F318AD38B2A9847c8f2`](https://sepolia.etherscan.io/address/0x17993708486461A22Fdd2F318AD38B2A9847c8f2)                                                 |
-| `Market`             | [`0xF973768571c771AD2CA2f2671964EFce9218267B`](https://sepolia.etherscan.io/address/0xF973768571c771AD2CA2f2671964EFce9218267B)                                                 |
-| Pedri framework      | `0x627521cfe327f54fab2fbc347e65db793af7050261b23bb749d7450dee25a40f` (IPFS `QmZpT2JJCWACtkLcexuBFzTyURtUyf4GXL7CW2bHeiqREL`)                                                    |
-| Judge (EigenCompute) | App `0xa6DC8b0EA1fc8CDe102c5DFF7F599a0Ec51e70FA` · IP `34.158.46.65:3001` · [attestation](https://verify-sepolia.eigencloud.xyz/app/0xa6DC8b0EA1fc8CDe102c5DFF7F599a0Ec51e70FA) |
+### Why correctness is not byte-equality
 
-## Frameworks
+`0x0802` runs GLM-4.7-FP8 — FP8 precision + GPU non-associativity → two honest executors produce different bytes. The original EigenCloud-style "watcher re-runs and SHA-256 matches" design **does not port**. Correctness instead means "executor was attested, request binding was honest, canonical prompt was the prompt, harness rules applied as written."
 
-A framework is a content-addressed tarball with three required files:
+## Frameworks (two-role)
 
-- `framework.md` — instructions for the AI judge: scope, decision rules, hard constraints, expected output schema
-- `manifest.json` — pinned model id, sampling params (temperature, seed, top_p, max_tokens), prompt template, evidence schema reference
-- `schemas/<name>.json` — JSON Schema for the evidence payload the judge expects
+A framework is a content-addressed tarball with four required files:
 
-The tarball is SHA-256'd to produce `framework_id`. The registry stores `id → (uri, author, metadata)` — append-only, never updated. Anyone who fetches the IPFS bytes can verify the hash matches the on-chain id.
+- `investigator.md` — evidence-gathering spec: tier-by-tier collection rules, source-allowlist discipline, balance rules, fetch_http tool surface, **final-output assembly contract** (the investigator pre-assembles the judge `messagesJson` from `judge.md` + dossier + question).
+- `judge.md` — adjudication spec: tier weighting, abstention rule, strict output schema (`outcome` 0|1|2, `confidence_bps` 0–10000, `driving_tier` 1|2|3, `subject_ref`, `dossier://` citations, `rationale_hash` 32-byte).
+- `schemas/dossierV1.json` — JSON Schema for the dossier envelope.
+- `manifest.json` — `model.id` (default `zai-org/GLM-4.7-FP8`), `sampling` (incl. `reasoningEffort: medium`), `outputSchema` (the verdict shape), `roles { investigator, judge }`.
 
-The repo ships with [`frameworks/football-player-value-v1/`](./frameworks/football-player-value-v1) as a reference. It resolves binary questions about a football player's value to their club (e.g. _"Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?"_), weighting on-pitch production, availability, role importance, market value, and tactical dependence.
+The tarball is SHA-256'd to produce `frameworkId`. The registry stores `id → (uri, author, metadata)` — append-only, never updated. Once a framework is registered, no actor — not the market creator, not the operator, not the agent — can alter what the rules say.
+
+The repo ships with [`frameworks/football-player-value-v1/`](./frameworks/football-player-value-v1) as a reference (v2.1.0). It resolves binary questions about a football player's value to their club (e.g. _"Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?"_) using the tier framing.
 
 See [`frameworks/_template/`](./frameworks/_template) to author your own.
-
-The companion repo [`interpretive-markets-backend`](https://github.com/gowthamsundaresan/interpretive-markets-backend) hosts the Postgres-backed indexer (`seeder`), the public read API, and the re-execution watcher.
 
 ## Build and test
 
 ```bash
 forge build
-forge test
+forge test                  # 59 tests across 6 suites
 ```
 
 ## Deploy your own instance
 
-For forking the system to your own network or chain.
-
 ```bash
-cp .env.example .env
+cp .env.example .env       # fill RITUAL_RPC_URL, DEPLOYER_PRIVATE_KEY, PINATA_JWT
 source .env
 
-# 1. Deploy registries + market
+# 1. Deploy registries + market + system wrapper to Ritual L1
 forge script script/deploy/DeployRegistries.s.sol:DeployRegistries \
-  --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
-  --sig "run(string)" -- "sepolia"
+  --rpc-url $RITUAL_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
+  --sig "run(string)" -- "ritual"
 
-# 2. Publish a framework (pack + pin to IPFS + register on-chain)
+# 2. Publish the framework (pack → pin to IPFS → register on-chain)
 cd manager && npm install
-npm run publish-framework football-player-value-v1
+npm run pin-framework football-player-value-v1
+npm run register-framework -- <id> <uri> 0x
+
+# 3. Create a market (edit market.example.json with your params first)
+cp ../script/tasks/market.example.json my-market.json
+$EDITOR my-market.json
+npx tsx src/workflows/createMarket.ts my-market.json
+
+# 4. Run the operator (watch-and-kick service)
+cd ../operator && npm install
+npm run start              # polls Market.get(...), kicks startInvestigation when ready
 ```
 
-To run the judge in EigenCompute:
+## Companion backend
 
-```bash
-cd judge && npm install && cp .env.example .env
-npm run deploy   # prepare-deploy + ecloud compute app deploy
-```
+The companion repo [`interpretive-markets-backend`](https://github.com/gowthamsundaresan/interpretive-markets-backend) hosts the off-chain pieces:
 
-Note your TEE-derived judge signer from the boot logs, fund it with a small amount of Sepolia ETH (it pays gas for `resolve()`), then register the image digest → signer mapping:
-
-```bash
-forge script script/tasks/RegisterJudge.s.sol:RegisterJudge \
-  --rpc-url $SEPOLIA_RPC_URL --broadcast --private-key $DEPLOYER_PRIVATE_KEY \
-  --sig "run(string,bytes32,address)" -- "sepolia" <imageDigest> <signerAddress>
-```
-
-Create a market with a framework, evidence URL, and resolution time:
-
-```bash
-cd manager
-npm run create-market \
-  "Is Erling Haaland more valuable to Manchester City than Kylian Mbappé is to Real Madrid?" \
-  "football-player-value-v1" \
-  "https://<api-host>/api/v1/evidence/haaland-mbappe-2024" \
-  $(( $(date +%s) - 60 )) \
-  "<imageDigest>"
-```
-
-Trigger resolution:
-
-```bash
-curl -X POST https://<judge-host>/resolve/<marketId> -H "x-api-key: $JUDGE_API_KEY"
-```
-
-The judge runs the pipeline, posts the verdict on-chain. The watcher picks it up and verifies via TEE attestation (gateway mode) or byte-equality re-execution (EigenAI mode).
-
-## Inference paths
-
-The judge supports two modes via `INFERENCE_PATH`:
-
-- **`gateway`** (default) — uses `@layr-labs/ai-gateway-provider` + Vercel AI SDK, routing to commodity LLMs (Claude, GPT) via TEE-attested JWT. No API key needed; works inside EigenCompute out of the box. Not bit-exact reproducible — verifiability comes from the TEE attestation of the judge image + signed verdict.
-- **`eigenai`** — direct call to EigenAI's deterministic inference API (`X-API-Key` auth, currently allowlist-gated). Bit-exact reproducible: any watcher can re-run the same prompt and SHA-256-match the response. Required for the full optimistic re-execution dispute model.
-
-Frameworks pin a `model.id`. For `gateway` mode use a provider-prefixed model id like `anthropic/claude-sonnet-4.6`. For `eigenai` mode use a supported deterministic model like `gpt-oss-120b-f16`.
-
-## Roadmap
-
-- **Opacity zkTLS for evidence fetching** — the judge currently fetches evidence over plain HTTPS. Swapping to Opacity makes the evidence cryptographically notarized so re-executors don't have to trust the data source.
-- **Market mechanics** — current `Market` is a stub. Next: `MarketFactory` + YES/NO LMSR or CPMM pools + settlement using the on-chain verdict.
-- **EigenAI mainnet allowlist** — for v0 the judge defaults to gateway mode; switching to deterministic EigenAI is a one-env-var change once allowlist access lands.
-- **Cloud courts** — generalizing the framework registry to arbitrate disputes between sovereign agents, with framework reputation, versioning, and challenge mechanics.
+- **`shared`** — typed ABIs, content-addressing utilities, Ritual system constants.
+- **`api`** — Fastify HTTP read API over the persisted state.
+- **`seeder`** — chain → Postgres event indexer.
+- **`watcher`** — consistency audit + dispute filing.
+- **`eval-harness`** — held-out cases + scorer stack + blind-labelling pipeline + Foundry oracle for rules enforcement.
+- **`prisma`** — Postgres schema + generated client.
 
 ## License
 
