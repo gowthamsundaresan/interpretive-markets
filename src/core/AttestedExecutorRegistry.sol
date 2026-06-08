@@ -7,7 +7,7 @@ import {IAttestedExecutorRegistry} from "../interfaces/IAttestedExecutorRegistry
 
 /// @title AttestedExecutorRegistry
 /// @notice Owner-curated allowlist of TEE executor addresses permitted to resolve markets
-/// @dev Application-layer overlay on top of Ritual's protocol-enforced attestation; see ADR-002 + ADR-005.
+/// @dev Application-layer overlay on top of Ritual's protocol-enforced attestation.
 contract AttestedExecutorRegistry is IAttestedExecutorRegistry, Ownable {
     // ------------------------------------------------------------------------------
     // State

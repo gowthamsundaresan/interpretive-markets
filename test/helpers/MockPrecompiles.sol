@@ -16,13 +16,12 @@ library MockPrecompiles {
 
     // --- Core functions ---
 
-    /// @notice Mock the Sovereign Agent precompile to return a Phase-1 job submission shape
+    /// @notice Mock the Sovereign Agent precompile for a Phase-1 submission
+    /// @dev `RitualSystem.investigate` treats the Phase-1 return as opaque; we mock a short opaque
+    ///      return so the call succeeds. jobId arrives in the Phase-2 callback.
     /// @param vm Forge cheatcode handle
-    /// @param jobId Job id that the precompile will return
-    function mockSovereignAgentSubmit(Vm vm, bytes32 jobId) internal {
-        IRitualSystem.StorageRef memory emptyRef = IRitualSystem.StorageRef({platform: "", path: "", keyRef: ""});
-        bytes memory ret = abi.encode(jobId, false, bytes(""), string(""), emptyRef);
-        vm.mockCall(SOVEREIGN_AGENT, bytes(""), ret);
+    function mockSovereignAgentSubmit(Vm vm) internal {
+        vm.mockCall(SOVEREIGN_AGENT, bytes(""), abi.encode(uint256(0)));
     }
 
     /// @notice Mock the LLM Inference precompile to return SPC completionData
@@ -44,11 +43,10 @@ library MockPrecompiles {
     }
 
     /// @notice Build the Phase-2 callback result bytes for `onSovereignAgentResult` in the
-    ///         canonical 6-field shape `(bool, string, string, StorageRef, StorageRef, StorageRef[])`
-    ///         per ADR-010. Per ADR-014 the investigator pre-assembles the judge messagesJson into
-    ///         `text` and pins the dossier in `artifacts[0]`. The default assembled JSON is a
-    ///         representative stub; tests that exercise the judge prompt specifically pass an
-    ///         explicit messagesJson.
+    ///         canonical 6-field shape `(bool, string, string, StorageRef, StorageRef, StorageRef[])`.
+    ///         The investigator pre-assembles the judge messagesJson into `text` and pins the
+    ///         dossier in `artifacts[0]`. The default assembled JSON is a representative stub;
+    ///         tests that exercise the judge prompt specifically pass an explicit messagesJson.
     function buildInvestigatorResult(
         string memory dossierCid,
         address /* executor */
@@ -68,8 +66,8 @@ library MockPrecompiles {
     }
 
     /// @notice Adversarial overload — pins the dossier StorageRef's platform AND path explicitly.
-    /// @dev Used by ADR-016 negative tests to assert that Market.sol rejects non-IPFS platforms
-    ///      and non-CID-shaped paths at the point of detection (not via empty-string side effect).
+    /// @dev Asserts Market.sol rejects non-IPFS platforms and non-CID-shaped paths at the point
+    ///      of detection (not via empty-string side effect).
     function buildInvestigatorResultWithStorageRef(
         string memory dossierPlatform,
         string memory dossierPath,

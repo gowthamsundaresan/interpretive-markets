@@ -6,8 +6,7 @@ import {DossierManifest} from "./DossierManifest.sol";
 
 /// @title HarnessRules
 /// @notice Pure functions enforcing the rule-of-engagement constraints on parsed verdicts
-/// @dev Rules and their motivations are described in PLAN.md §2 and DECISIONS.md ADR-009.
-///      Range/structure failures detected here route the verdict to the dispute path, not revert.
+/// @dev Range/structure failures detected here route the verdict to the dispute path, not revert.
 library HarnessRules {
     // ------------------------------------------------------------------------------
     // Constants

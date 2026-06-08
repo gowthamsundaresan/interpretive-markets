@@ -12,8 +12,6 @@ import {DossierManifest} from "../libraries/DossierManifest.sol";
 
 /// @title Market
 /// @notice Singleton registry of interpretive markets resolved via Ritual L1 single-callback flow
-/// @dev See PLAN.md §2 for the end-to-end diagram and DECISIONS.md ADRs for the rationale behind
-///      the single-callback architecture, protocol-layer attestation, and three-layer JSON defense.
 contract Market is IMarket {
     using JSONParserLib for JSONParserLib.Item;
     using JSONParserLib for string;
@@ -41,13 +39,17 @@ contract Market is IMarket {
     /// @notice Cached AsyncDelivery address — the trust boundary for onSovereignAgentResult
     address public immutable asyncDelivery;
 
-    /// @notice Mapping of market id to stored record
     mapping(uint256 => Market) private _markets;
 
-    /// @notice Mapping of investigation job id to market id (router for AsyncDelivery callbacks)
+    /// @notice Audit trail: jobId → marketId. Populated when the callback fires (jobId is unknown
+    ///         at submission time — see SovereignAgent flow), not at submission.
     mapping(bytes32 => uint256) private _jobToMarket;
 
-    /// @notice The next market id to be assigned
+    /// @notice The market currently awaiting Phase-2 delivery, or 0 if none. Mirrors the chain's
+    ///         per-sender single-pending invariant (`AsyncJobTracker.hasPendingJobForSender`) so
+    ///         the callback can resolve marketId without needing jobId at submission.
+    uint256 private _pendingInvestigationMarket;
+
     uint256 private _nextMarketId;
 
     // ------------------------------------------------------------------------------
@@ -82,34 +84,38 @@ contract Market is IMarket {
     }
 
     /// @inheritdoc IMarket
-    function startInvestigation(uint256 marketId) external {
+    function startInvestigation(uint256 marketId, SovereignSubmissionParams calldata params) external {
         Market storage m = _markets[marketId];
         if (m.createdAt == 0) revert UnknownMarket(marketId);
         if (block.timestamp < m.init.resolutionTime) revert TooEarly(marketId, m.init.resolutionTime);
         if (m.investigationStartedAt != 0) revert InvestigationAlreadyStarted(marketId);
+        if (_pendingInvestigationMarket != 0) revert AnotherInvestigationPending(_pendingInvestigationMarket);
 
-        IRitualSystem.InvestigationRequest memory request = _buildInvestigationRequest(m);
-        bytes32 jobId = ritualSystem.investigate(request);
+        _pendingInvestigationMarket = marketId;
 
-        m.investigationJobId = jobId;
+        IRitualSystem.InvestigationRequest memory request = _buildInvestigationRequest(m, params);
+        ritualSystem.investigate(request);
+
         m.investigationStartedAt = uint64(block.timestamp);
-        _jobToMarket[jobId] = marketId;
 
         bytes32 requestBinding = _requestBindingForInvestigation(marketId, m);
-        emit InvestigationStarted(marketId, jobId, requestBinding);
+        emit InvestigationStarted(marketId, requestBinding);
     }
 
     /// @inheritdoc IMarket
     function onSovereignAgentResult(bytes32 jobId, bytes calldata result) external {
         if (msg.sender != asyncDelivery) revert Unauthorized(msg.sender);
 
-        uint256 marketId = _jobToMarket[jobId];
-        if (marketId == 0) revert UnknownMarket(0);
+        uint256 marketId = _pendingInvestigationMarket;
+        if (marketId == 0) revert NoPendingInvestigation();
+        _pendingInvestigationMarket = 0;
 
         Market storage m = _markets[marketId];
         if (m.investigationStartedAt == 0) revert InvestigationNotStarted(marketId);
-        if (m.investigationJobId != jobId) revert JobIdMismatch(marketId, m.investigationJobId, jobId);
         if (m.finalized) revert AlreadyFinalized(marketId);
+
+        m.investigationJobId = jobId;
+        _jobToMarket[jobId] = marketId;
 
         (
             string memory dossierPlatform,
@@ -117,10 +123,9 @@ contract Market is IMarket {
             string memory messagesJson
         ) = _decodeInvestigatorResult(result);
 
-        // Reject at the point of detection (ADR-016): the dossier StorageRef must reference
-        // content-addressed bytes, or the watcher's recompute-and-compare audit is hollow.
-        // Empty-string-and-trust-downstream-to-choke would couple this security check to a
-        // side-effect two steps away and a future parse-path refactor could silently break it.
+        // Reject non-IPFS platforms at point of detection — content-addressed bytes are required
+        // for the watcher's recompute-and-compare audit; trusting downstream parsing to choke
+        // would couple the security check to a side effect two steps away.
         if (!DossierManifest.validateIpfsPlatform(dossierPlatform)) {
             m.malformed = true;
             emit MalformedDossierPlatform(marketId, dossierPlatform);
@@ -142,10 +147,8 @@ contract Market is IMarket {
         bytes32 verdictHash = keccak256(completionData);
         emit JudgmentDelivered(marketId, verdictHash);
 
-        // Executor identity recording on-chain is intentionally deferred to the watcher's
-        // off-chain consistency audit (ADR-005, ADR-011). Pass address(0) here; the watcher
-        // resolves the actual executor by reading the resolution-tx receipt and matching
-        // against TEEServiceRegistry's workloadId.
+        // Executor identity is resolved off-chain by the watcher (resolution-tx receipt +
+        // TEEServiceRegistry workloadId match). We pass address(0) on-chain.
         _applyVerdict(marketId, m, completionData, dossierCid, address(0), verdictHash);
     }
 
@@ -171,6 +174,11 @@ contract Market is IMarket {
     }
 
     /// @inheritdoc IMarket
+    function pendingInvestigationMarket() external view returns (uint256 marketId) {
+        marketId = _pendingInvestigationMarket;
+    }
+
+    /// @inheritdoc IMarket
     function marketIdForJob(bytes32 jobId) external view returns (uint256 marketId) {
         marketId = _jobToMarket[jobId];
     }
@@ -180,8 +188,8 @@ contract Market is IMarket {
     // ------------------------------------------------------------------------------
 
     /// @notice Parse a completionData JSON payload into a ParsedVerdict
-    /// @dev Marked external so onSovereignAgentResult can wrap it in try/catch (ADR-009).
-    ///      Reverts on any structural failure; the caller catches and routes to MalformedVerdict.
+    /// @dev External so onSovereignAgentResult can wrap in try/catch; reverts on any structural
+    ///      failure and the caller routes to MalformedVerdict.
     function parseVerdictPayload(
         bytes calldata completionData
     ) external pure returns (ResolutionTypes.ParsedVerdict memory parsed) {
@@ -273,9 +281,10 @@ contract Market is IMarket {
         emit VerdictFinalized(marketId, outcome, confidence);
     }
 
-    /// @dev Build the SovereignAgent investigation request from market state
+    /// @dev Build the SovereignAgent investigation request from market state + operator submission params
     function _buildInvestigationRequest(
-        Market storage m
+        Market storage m,
+        SovereignSubmissionParams calldata params
     ) internal view returns (IRitualSystem.InvestigationRequest memory request) {
         IRitualSystem.StorageRef[] memory emptySkills = new IRitualSystem.StorageRef[](0);
         IRitualSystem.StorageRef memory systemPrompt = IRitualSystem.StorageRef({
@@ -294,8 +303,15 @@ contract Market is IMarket {
             maxTurns: m.init.maxTurns,
             maxTokens: m.init.maxTokens,
             callbackSelector: this.onSovereignAgentResult.selector,
-            gasLimit: m.init.callbackGasLimit,
-            ttl: m.init.investigationTtl
+            callbackGasLimit: m.init.callbackGasLimit,
+            ttl: m.init.investigationTtl,
+            executor: params.executor,
+            encryptedSecrets: params.encryptedSecrets,
+            userPublicKey: params.userPublicKey,
+            pollIntervalBlocks: params.pollIntervalBlocks,
+            maxPollBlock: params.maxPollBlock,
+            maxFeePerGas: params.maxFeePerGas,
+            maxPriorityFeePerGas: params.maxPriorityFeePerGas
         });
     }
 
@@ -322,17 +338,11 @@ contract Market is IMarket {
         return keccak256(abi.encode(marketId, m.init.frameworkId, m.init.question, m.init.sourceAllowlist));
     }
 
-    /// @dev Decode the Phase-2 result bytes from 0x080C using the canonical 6-field shape
-    ///      from `examples/sovereign-agent/helpers.py` (ADR-010): `(bool success, string error,
-    ///      string text, StorageRef ref1, StorageRef ref2, StorageRef[] artifacts)`. Per ADR-014
-    ///      the investigator pre-assembles the judge messagesJson into the `text` field; the
-    ///      dossier StorageRef goes in `artifacts[0]` for audit binding. Per ADR-016, the caller
-    ///      MUST validate that `dossierPlatform == "ipfs"` AND `validateIpfsCidShape(dossierCid)`
-    ///      before treating the dossier as binding — non-content-addressed paths defeat the audit.
-    /// @param result Phase-2 bytes payload from AsyncDelivery
-    /// @return dossierPlatform Platform field from artifacts[0] (MUST be validated by caller)
-    /// @return dossierCid Path field from artifacts[0] (MUST be validated by caller)
-    /// @return messagesJson Pre-assembled OpenAI-format judge prompt (from result.text)
+    /// @dev Decode the Phase-2 result using the canonical 6-field shape:
+    ///      `(bool success, string error, string text, StorageRef ref1, StorageRef ref2, StorageRef[] artifacts)`.
+    ///      The investigator pre-assembles the judge messagesJson into `text` and pins the dossier
+    ///      StorageRef in `artifacts[0]`. Caller MUST validate `dossierPlatform == "ipfs"` and
+    ///      `validateIpfsCidShape(dossierCid)` — non-content-addressed paths defeat the audit trail.
     function _decodeInvestigatorResult(
         bytes calldata result
     ) internal pure returns (string memory dossierPlatform, string memory dossierCid, string memory messagesJson) {

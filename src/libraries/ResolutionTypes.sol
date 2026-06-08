@@ -3,9 +3,9 @@ pragma solidity ^0.8.27;
 
 /// @title ResolutionTypes
 /// @notice Shared structs for market verdicts and dossier manifests on Ritual L1
-/// @dev confidence is encoded as basis points (0..10000) to avoid float math in Solidity (ADR-003).
-///      Free-form rationale text is kept off-chain in the audit bundle; only its keccak256 hash is
-///      bound on-chain (ADR-009).
+/// @dev confidence is encoded as basis points (0..10000) to avoid float math in Solidity.
+///      Free-form rationale text lives off-chain in the audit bundle; only its keccak256 hash
+///      is bound on-chain.
 library ResolutionTypes {
     // ============================================================================
     // STRUCTS

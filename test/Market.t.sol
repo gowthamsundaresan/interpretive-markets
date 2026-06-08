@@ -79,38 +79,41 @@ contract MarketTest is Test {
 
     // ------ startInvestigation ------
 
-    function test_startInvestigation_recordsJobAndEmits() public {
+    function test_startInvestigation_recordsTimestampAndPending() public {
         uint256 id = _create();
         vm.warp(resolutionTime + 1);
 
-        MockPrecompiles.mockSovereignAgentSubmit(vm, JOB_ID);
+        MockPrecompiles.mockSovereignAgentSubmit(vm);
 
-        market.startInvestigation(id);
+        market.startInvestigation(id, _submissionParams());
 
+        // jobId is NOT known at submission — it arrives in the Phase-2 callback. What we DO
+        // record at submission is the timestamp + the single-pending marker.
         IMarket.Market memory m = market.get(id);
-        assertEq(m.investigationJobId, JOB_ID);
+        assertEq(m.investigationJobId, bytes32(0), "jobId must be unknown until callback");
         assertEq(m.investigationStartedAt, uint64(block.timestamp));
-        assertEq(market.marketIdForJob(JOB_ID), id);
+        assertEq(market.pendingInvestigationMarket(), id, "single-pending marker must point at this market");
+        assertEq(market.marketIdForJob(JOB_ID), uint256(0), "jobToMarket populated only at callback");
     }
 
     function test_startInvestigation_revertsBeforeResolutionTime() public {
         uint256 id = _create();
         vm.expectRevert(abi.encodeWithSelector(IMarket.TooEarly.selector, id, resolutionTime));
-        market.startInvestigation(id);
+        market.startInvestigation(id, _submissionParams());
     }
 
     function test_startInvestigation_revertsOnDouble() public {
         uint256 id = _create();
         vm.warp(resolutionTime + 1);
-        MockPrecompiles.mockSovereignAgentSubmit(vm, JOB_ID);
-        market.startInvestigation(id);
+        MockPrecompiles.mockSovereignAgentSubmit(vm);
+        market.startInvestigation(id, _submissionParams());
         vm.expectRevert(abi.encodeWithSelector(IMarket.InvestigationAlreadyStarted.selector, id));
-        market.startInvestigation(id);
+        market.startInvestigation(id, _submissionParams());
     }
 
     function test_startInvestigation_revertsOnUnknownMarket() public {
         vm.expectRevert(abi.encodeWithSelector(IMarket.UnknownMarket.selector, uint256(999)));
-        market.startInvestigation(999);
+        market.startInvestigation(999, _submissionParams());
     }
 
     // ------ onSovereignAgentResult — happy path ------
@@ -139,8 +142,6 @@ contract MarketTest is Test {
         assertEq(m.verdict.confidenceBps, 7200);
         assertEq(m.verdict.drivingTier, 1);
         assertEq(m.verdict.subjectRef, "haaland");
-        // Per ADR-005/ADR-011, executor identity is resolved by the watcher off-chain via the
-        // resolution-tx receipt + TEEServiceRegistry lookup. On-chain we record address(0).
         assertEq(m.verdict.executor, address(0));
     }
 
@@ -153,12 +154,48 @@ contract MarketTest is Test {
         market.onSovereignAgentResult(JOB_ID, _investigatorResult());
     }
 
-    function test_onSovereignAgentResult_revertsOnUnknownJobId() public {
-        _createAndStart();
-        bytes32 fakeJob = bytes32(uint256(0xDEAD));
+    function test_onSovereignAgentResult_revertsWhenNoPending() public {
+        // No market has called startInvestigation; the single-pending slot is 0.
+        // Any AsyncDelivery callback must revert — there's nothing to route it to.
         vm.prank(asyncDelivery);
-        vm.expectRevert(abi.encodeWithSelector(IMarket.UnknownMarket.selector, uint256(0)));
-        market.onSovereignAgentResult(fakeJob, _investigatorResult());
+        vm.expectRevert(IMarket.NoPendingInvestigation.selector);
+        market.onSovereignAgentResult(JOB_ID, _investigatorResult());
+    }
+
+    function test_startInvestigation_revertsWhenAnotherPending() public {
+        // Only one investigation can be in flight at a time. A second startInvestigation before
+        // the first's callback fires must revert with AnotherInvestigationPending.
+        uint256 id1 = _create();
+        uint256 id2 = _create();
+        vm.warp(resolutionTime + 1);
+
+        MockPrecompiles.mockSovereignAgentSubmit(vm);
+        market.startInvestigation(id1, _submissionParams());
+
+        vm.expectRevert(abi.encodeWithSelector(IMarket.AnotherInvestigationPending.selector, id1));
+        market.startInvestigation(id2, _submissionParams());
+    }
+
+    function test_pendingClearedAfterCallback() public {
+        // After the Phase-2 callback fires, the single-pending slot must clear so a new
+        // investigation can start.
+        uint256 id1 = _createAndStart();
+        string memory verdictJson = MockPrecompiles.buildVerdictJson(
+            1,
+            7200,
+            1,
+            "haaland",
+            _zeroHashHex(),
+            _citations("dossier://stats.x")
+        );
+        MockPrecompiles.mockJudgeSuccess(vm, bytes(verdictJson));
+
+        vm.prank(asyncDelivery);
+        market.onSovereignAgentResult(JOB_ID, _investigatorResult());
+
+        assertEq(market.pendingInvestigationMarket(), uint256(0), "pending must clear after callback");
+        // marketIdForJob is populated lazily at callback time
+        assertEq(market.marketIdForJob(JOB_ID), id1, "jobId now correlates to market");
     }
 
     // ------ HarnessRules firing in isolation ------
@@ -280,7 +317,7 @@ contract MarketTest is Test {
         assertFalse(m.finalized);
     }
 
-    // ------ ADR-016 — Dossier StorageRef must be content-addressed (IPFS) ------
+    // ------ Dossier StorageRef must be content-addressed (IPFS) ------
 
     function test_malformed_nonIpfsDossierPlatformRoutesToDispute() public {
         uint256 id = _createAndStart();
@@ -387,7 +424,7 @@ contract MarketTest is Test {
         assertTrue(market.get(id).disputed);
     }
 
-    // ------ ADR-018 — Framework is frozen at market creation ------
+    // ------ Framework is frozen at market creation ------
     //
     // The pre-commitment property: a market's framework (question + framework id + source
     // allowlist + dossier manifest + judge model + agent budgets) is declared at createMarket
@@ -410,8 +447,8 @@ contract MarketTest is Test {
         // sets investigationJobId/investigationStartedAt; onSovereignAgentResult sets dossierCid,
         // verdict, finalized. None of them should touch m.init.
         vm.warp(resolutionTime + 1);
-        MockPrecompiles.mockSovereignAgentSubmit(vm, JOB_ID);
-        market.startInvestigation(id);
+        MockPrecompiles.mockSovereignAgentSubmit(vm);
+        market.startInvestigation(id, _submissionParams());
         _assertInitEq(market.get(id).init, pre);
 
         string memory verdictJson = MockPrecompiles.buildVerdictJson(
@@ -477,8 +514,20 @@ contract MarketTest is Test {
     function _createAndStart() internal returns (uint256 id) {
         id = _create();
         vm.warp(resolutionTime + 1);
-        MockPrecompiles.mockSovereignAgentSubmit(vm, JOB_ID);
-        market.startInvestigation(id);
+        MockPrecompiles.mockSovereignAgentSubmit(vm);
+        market.startInvestigation(id, _submissionParams());
+    }
+
+    function _submissionParams() internal view returns (IMarket.SovereignSubmissionParams memory params) {
+        params = IMarket.SovereignSubmissionParams({
+            executor: executor,
+            encryptedSecrets: hex"01",
+            userPublicKey: hex"",
+            pollIntervalBlocks: 5,
+            maxPollBlock: 6000,
+            maxFeePerGas: 1_000_000_000,
+            maxPriorityFeePerGas: 100_000_000
+        });
     }
 
     function _finalizeHappyPath() internal returns (uint256 id) {

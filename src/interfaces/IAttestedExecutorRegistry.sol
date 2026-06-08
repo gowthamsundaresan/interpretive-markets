@@ -4,8 +4,8 @@ pragma solidity ^0.8.27;
 /// @title IAttestedExecutorRegistry Interface
 /// @notice Owner-curated allowlist of TEE executor addresses that are permitted to resolve markets.
 ///         Protocol-layer attestation against `TEEServiceRegistry` is enforced by the Ritual block
-///         builder (ADR-002); this registry is an application-layer governance overlay that lets
-///         the owner narrow the set of attested executors a market will accept.
+///         builder; this registry is an application-layer overlay that lets the owner narrow the
+///         set of attested executors a market will accept.
 interface IAttestedExecutorRegistry {
     // ============================================================================
     // STRUCTS

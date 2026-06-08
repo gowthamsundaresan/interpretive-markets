@@ -3,8 +3,8 @@ pragma solidity ^0.8.27;
 
 /// @title DossierManifest
 /// @notice Helpers for validating citation strings against a dossier path manifest
-/// @dev Kept structural by design (ADR-009): deep validation that each citation resolves to a
-///      real dossier value lives off-chain in the eval-harness.
+/// @dev Validation is intentionally structural; deep "this citation resolves to a real dossier
+///      value" checks live off-chain in the eval-harness.
 library DossierManifest {
     // ------------------------------------------------------------------------------
     // Core functions
@@ -33,9 +33,9 @@ library DossierManifest {
     }
 
     /// @notice True when `platform` is exactly the literal "ipfs"
-    /// @dev Enforces ADR-016: only content-addressed bytes are admissible on the on-chain path.
-    ///      A mutable storage platform (e.g. HuggingFace) would let the executor substitute the
-    ///      dossier post-callback and defeat the watcher's recompute-and-compare audit.
+    /// @dev Only content-addressed bytes are admissible on the on-chain path. A mutable storage
+    ///      platform (e.g. HuggingFace) would let the executor substitute the dossier
+    ///      post-callback and defeat the watcher's recompute-and-compare audit.
     /// @param platform The StorageRef platform field from the investigator's artifacts[0]
     /// @return ok True when platform is "ipfs"
     function validateIpfsPlatform(string memory platform) internal pure returns (bool ok) {

@@ -21,7 +21,7 @@ interface IMarket {
     /// @param dossierPathPrefix Required prefix for every citation (e.g. "dossier://")
     /// @param dossierSubjects Allowed subject_ref identifiers
     /// @param resolutionTime Earliest timestamp at which startInvestigation may be called
-    /// @param cliType Sovereign Agent harness selector (0 = Claude Code per ADR-004)
+    /// @param cliType Sovereign Agent harness selector (0=ClaudeCode, 5=Crush, 6=ZeroClaw)
     /// @param model LLM model identifier for the judge (e.g. "zai-org/GLM-4.7-FP8")
     /// @param maxTurns Cap on investigator agentic turns
     /// @param maxTokens Cap on investigator output tokens
@@ -77,10 +77,11 @@ interface IMarket {
     event MarketCreated(uint256 indexed marketId, bytes32 indexed frameworkId, address creator);
 
     /// @notice Emitted when startInvestigation submits the 0x080C call
+    /// @dev jobId is not known at submission — it arrives in the Phase-2 callback. Use
+    ///      `InvestigationDelivered` to learn the jobId post-hoc.
     /// @param marketId The market id
-    /// @param jobId AsyncJobTracker job id assigned by the precompile
     /// @param requestBinding keccak256 of the canonical investigation inputs
-    event InvestigationStarted(uint256 indexed marketId, bytes32 indexed jobId, bytes32 requestBinding);
+    event InvestigationStarted(uint256 indexed marketId, bytes32 requestBinding);
 
     /// @notice Emitted when AsyncDelivery hands back the investigator's result
     /// @param marketId The market id
@@ -109,13 +110,13 @@ interface IMarket {
     event MalformedVerdict(uint256 indexed marketId, string reason);
 
     /// @notice Emitted when the investigator returned a dossier StorageRef with a non-IPFS platform
-    /// @dev ADR-016. Defends against an executor swapping a mutable HF dossier post-callback.
+    /// @dev Defends against an executor swapping a mutable HF dossier post-callback.
     /// @param marketId The market id
     /// @param offendingPlatform The platform string the investigator returned (e.g. "hf", "gcs")
     event MalformedDossierPlatform(uint256 indexed marketId, string offendingPlatform);
 
     /// @notice Emitted when the investigator returned a dossier StorageRef whose path is not a valid IPFS CID
-    /// @dev ADR-016. CIDv1 (bafy/bafk/bafz) and CIDv0 (Qm) are accepted; everything else is rejected.
+    /// @dev CIDv1 (bafy/bafk/bafz) and CIDv0 (Qm) are accepted; everything else is rejected.
     /// @param marketId The market id
     /// @param offendingCid The path string the investigator returned in artifacts[0].path
     event MalformedDossierCid(uint256 indexed marketId, string offendingCid);
@@ -157,8 +158,13 @@ interface IMarket {
     /// @notice Reverts when the resolution callback fires after the market is already finalized
     error AlreadyFinalized(uint256 marketId);
 
-    /// @notice Reverts when a callback is delivered with a jobId that does not match the market state
-    error JobIdMismatch(uint256 marketId, bytes32 expected, bytes32 received);
+    /// @notice Reverts when startInvestigation is called while another market's investigation is in flight
+    /// @dev Mirrors the chain's per-sender single-pending-job invariant on
+    ///      `AsyncJobTracker.hasPendingJobForSender(address(this))`.
+    error AnotherInvestigationPending(uint256 pendingMarketId);
+
+    /// @notice Reverts when AsyncDelivery delivers a callback while no investigation is pending
+    error NoPendingInvestigation();
 
     /// @notice Reverts when a non-AsyncDelivery address invokes onSovereignAgentResult
     error Unauthorized(address caller);
@@ -178,10 +184,38 @@ interface IMarket {
     /// @return marketId The id assigned to the new market
     function createMarket(MarketInit calldata params) external returns (uint256 marketId);
 
+    /// @notice Operator-supplied parameters for the Phase-1 submission
+    /// @dev See `IRitualSystem.InvestigationRequest` for the empirical node-side constraints. The
+    ///      operator picks `executor` from `TEEServiceRegistry.getServicesByCapability(0, true)`,
+    ///      builds `encryptedSecrets` off-chain (ECIES against the executor's pubkey, MUST include
+    ///      `LLM_PROVIDER` in the encrypted JSON), and picks gas/poll parameters per chain conditions.
+    /// @param executor TEE address from the registry (NOT address(0))
+    /// @param encryptedSecrets ECIES-encrypted secrets JSON (must include `LLM_PROVIDER`)
+    /// @param userPublicKey 65-byte uncompressed pubkey for encrypted result (empty = plaintext)
+    /// @param pollIntervalBlocks Phase-2 polling cadence (5 is canonical)
+    /// @param maxPollBlock Phase-2 deadline RELATIVE offset (≤ 70000)
+    /// @param maxFeePerGas Delivery callback fee (≥ 1 gwei)
+    /// @param maxPriorityFeePerGas Delivery callback priority fee (≥ 0.1 gwei)
+    struct SovereignSubmissionParams {
+        address executor;
+        bytes encryptedSecrets;
+        bytes userPublicKey;
+        uint64 pollIntervalBlocks;
+        uint64 maxPollBlock;
+        uint256 maxFeePerGas;
+        uint256 maxPriorityFeePerGas;
+    }
+
     /// @notice Submit the investigation job to the Sovereign Agent precompile (0x080C)
-    /// @dev Anyone may call after resolutionTime; AsyncJobTracker sender-lock applies per-EOA.
+    /// @dev Anyone may call after resolutionTime. The operator MUST off-chain: (1) pick an executor
+    ///      from `TEEServiceRegistry.getServicesByCapability(0, true)`, (2) ECIES-encrypt the secrets
+    ///      JSON (including the mandatory `LLM_PROVIDER` field) against the executor's pubkey using
+    ///      `symmetric_nonce_length=12`, and (3) deposit ≥ 0.124 RIT in `RitualWallet` with a lock
+    ///      extending past `currentBlock + ttl`. Only one investigation may be in flight at a time
+    ///      across all markets.
     /// @param marketId The market id
-    function startInvestigation(uint256 marketId) external;
+    /// @param params Operator-supplied submission parameters
+    function startInvestigation(uint256 marketId, SovereignSubmissionParams calldata params) external;
 
     /// @notice AsyncDelivery callback handler — the single resolution entrypoint
     /// @dev Reverts if msg.sender != AsyncDelivery. Runs decode → SPC judge → harness → finalize
@@ -204,7 +238,15 @@ interface IMarket {
     /// @return nextId The next market id
     function nextMarketId() external view returns (uint256 nextId);
 
+    /// @notice The market id currently awaiting Phase-2 callback delivery, or 0 if none
+    /// @dev At most one investigation can be in flight at a time. Enforced at the contract layer
+    ///      (this view returns non-zero while in flight) AND at the protocol layer
+    ///      (`AsyncJobTracker.hasPendingJobForSender(address(this))`).
+    /// @return marketId The market awaiting callback; 0 when none
+    function pendingInvestigationMarket() external view returns (uint256 marketId);
+
     /// @notice Lookup the market id associated with an AsyncJobTracker jobId
+    /// @dev Populated lazily — jobId is learned at callback time, not at submission.
     /// @param jobId The AsyncJobTracker job id
     /// @return marketId The corresponding market id; 0 when not found
     function marketIdForJob(bytes32 jobId) external view returns (uint256 marketId);

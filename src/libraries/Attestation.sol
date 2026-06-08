@@ -3,10 +3,10 @@ pragma solidity ^0.8.27;
 
 /// @title Attestation
 /// @notice Thin helper for recording TEE executor identity at callback delivery time
-/// @dev Per ADR-002 and ADR-005, this library does NOT perform DCAP-style quote verification.
-///      Attestation is enforced upstream by the Ritual block builder against TEEServiceRegistry.
-///      The consumer's trust boundary is `msg.sender == ASYNC_DELIVERY`; this helper exists so
-///      the watcher can do off-chain consistency auditing from the recorded executor and block.
+/// @dev Does NOT perform DCAP-style quote verification. Attestation is enforced upstream by the
+///      Ritual block builder against TEEServiceRegistry; the consumer's trust boundary is
+///      `msg.sender == ASYNC_DELIVERY`. This helper exists so the watcher can do off-chain
+///      consistency auditing from the recorded executor + block.
 library Attestation {
     // ============================================================================
     // STRUCTS
