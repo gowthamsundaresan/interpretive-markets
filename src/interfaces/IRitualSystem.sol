@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 /// @title IRitualSystem Interface
 /// @notice Typed wrappers over Ritual L1 system primitives used by Market.sol
-/// @dev Addresses captured from docs.ritualfoundation.org (PLAN.md §5 Phase 0).
+/// @dev Addresses captured from docs.ritualfoundation.org (see docs/ARCHITECTURE.md §3).
 ///      Investigator runs against `0x080C` Sovereign Agent (two-phase async, callback delivery).
 ///      Judge runs against `0x0802` LLM Inference (Short Async / SPC, result returned inline).
 interface IRitualSystem {
