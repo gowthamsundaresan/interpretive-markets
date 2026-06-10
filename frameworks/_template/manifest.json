@@ -2,30 +2,37 @@
     "name": "{framework-slug}",
     "version": "0.1.0",
     "description": "",
-    "extends": null,
     "applicableTo": [],
     "model": {
-        "id": "gpt-oss-120b",
-        "provider": "eigenai",
+        "id": "z-ai/glm-4.7",
         "sampling": {
             "temperature": 0,
             "topP": 1.0,
-            "seed": 42,
-            "maxTokens": 1500
+            "seed": 0,
+            "maxTokens": 2400,
+            "reasoningEffort": "medium"
         }
     },
-    "evidenceSchema": "schemas/yourEvidenceSchema.json",
+    "evidenceSchema": "schemas/dossier.json",
     "outputSchema": {
         "type": "object",
-        "required": ["outcome", "confidence", "reasoning"],
+        "required": ["outcome", "confidence_bps", "driving_tier", "subject_ref", "citations", "rationale_hash"],
+        "additionalProperties": true,
         "properties": {
-            "outcome": { "type": "integer" },
-            "confidence": { "type": "number" },
-            "reasoning": { "type": "string" }
+            "outcome": { "type": "integer", "enum": [0, 1, 2] },
+            "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "driving_tier": { "type": "integer", "enum": [1, 2, 3] },
+            "subject_ref": { "type": "string" },
+            "citations": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^dossier://" } },
+            "rationale_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" }
         }
     },
-    "promptTemplate": {
-        "system": "framework.md",
-        "userTemplate": "question: {{question}}\n\nevidence:\n{{evidence_json}}"
+    "roles": {
+        "investigator": {
+            "prompt": "investigator.md",
+            "tools": ["fetch_http"],
+            "skills": ["schemas/dossier.json", "judge.md"]
+        },
+        "judge": { "prompt": "judge.md" }
     }
 }

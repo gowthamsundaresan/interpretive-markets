@@ -1,0 +1,14 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "{framework-slug} dossier",
+    "type": "object",
+    "required": ["asOf", "subjects"],
+    "additionalProperties": true,
+    "properties": {
+        "asOf": { "type": "string", "format": "date" },
+        "subjects": {
+            "type": "object",
+            "additionalProperties": { "type": "object", "additionalProperties": true }
+        }
+    }
+}

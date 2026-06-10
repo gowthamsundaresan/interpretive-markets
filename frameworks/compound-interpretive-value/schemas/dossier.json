@@ -1,0 +1,246 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://interpretive.markets/schemas/compound-interpretive-value/dossier.json",
+    "title": "Compound Interpretive Value Dossier",
+    "description": "A single dossier carrying a compound interpretive question decomposed into ordered, individually-interpretive sub-claims over a shared subjects map. Each sub-claim is adjudicated under a declared weighting lens; the judge composes the sub-verdicts. Evidence is deliberately rich and multi-typed: the classification of an evidence type into a tier, and its relevance to a given lens, is itself contestable — that ambiguity is the framework's attack surface.",
+    "type": "object",
+    "required": ["asOf", "compoundQuestion", "claims", "compositionRule", "primarySubjectClaimId", "subjects"],
+    "additionalProperties": true,
+    "properties": {
+        "$framework": {
+            "type": "object",
+            "description": "Framework pin metadata (id/ipfs/slug/version). Echoed for provenance; not load-bearing for adjudication.",
+            "additionalProperties": true
+        },
+        "asOf": {
+            "type": "string",
+            "format": "date",
+            "description": "Snapshot date the dossier was assembled as-of. The judge treats this as the recency anchor."
+        },
+        "question_frame": {
+            "type": "object",
+            "description": "Declares the resolution frame. compound_interpretive is the only frame v1.0 supports.",
+            "properties": {
+                "frame": { "type": "string", "enum": ["compound_interpretive"] },
+                "declared_club": { "type": "string" },
+                "season": { "type": "string" }
+            },
+            "required": ["frame"],
+            "additionalProperties": true
+        },
+        "compoundQuestion": {
+            "type": "string",
+            "description": "The full natural-language compound question, e.g. 'Is Bellingham Real Madrid's most valuable player in 2023-24 AND is his value primarily output-driven AND is he stronger in big games than season-average?'"
+        },
+        "compositionRule": {
+            "type": "string",
+            "enum": ["AND"],
+            "description": "How sub-verdicts compose into the on-chain outcome. v1.0 supports AND only."
+        },
+        "primarySubjectClaimId": {
+            "type": "string",
+            "description": "Which claim's primarySubject becomes the on-chain subject_ref. MUST reference a claim whose primarySubject is a primary-tier subject."
+        },
+        "claims": {
+            "type": "array",
+            "minItems": 2,
+            "description": "Ordered list of individually-interpretive sub-claims. Each is adjudicated under its own lens, then composed.",
+            "items": {
+                "type": "object",
+                "required": ["id", "claim", "claimType", "interpretiveLens", "primarySubject", "evidenceMapping"],
+                "additionalProperties": true,
+                "properties": {
+                    "id": { "type": "string", "description": "Stable claim id, e.g. 'c1'." },
+                    "claim": {
+                        "type": "string",
+                        "description": "Natural-language sub-claim. MUST be genuinely interpretive (contested weighting), not an objective fact lookup."
+                    },
+                    "claimType": {
+                        "type": "string",
+                        "enum": ["value_synthesis", "driver_decomposition", "context_conditioning"],
+                        "description": "The interpretive operation the sub-claim performs."
+                    },
+                    "interpretiveLens": {
+                        "type": "string",
+                        "enum": ["default_value_synthesis", "output_vs_irreplaceability", "big_game_vs_average"],
+                        "description": "The weighting frame applied to the shared evidence for THIS claim. The same evidence weighs differently under different lenses."
+                    },
+                    "primarySubject": {
+                        "type": "string",
+                        "description": "Dossier key of the subject this claim is about."
+                    },
+                    "evidenceMapping": {
+                        "type": "object",
+                        "description": "Explicit pointers from this claim to the dossier evidence paths it is permitted to rely on, grouped by tier. The judge MUST NOT leverage Tier-1 evidence for a claim that this mapping omits, even if the field is loud in the prose.",
+                        "properties": {
+                            "tier1": { "type": "array", "items": { "type": "string" } },
+                            "tier2": { "type": "array", "items": { "type": "string" } },
+                            "tier3": { "type": "array", "items": { "type": "string" } }
+                        },
+                        "additionalProperties": true
+                    }
+                }
+            }
+        },
+        "crossClaimRefs": {
+            "type": "array",
+            "description": "Declared coherence constraints the judge must validate across sub-claims. A violation makes the compound UNRESOLVABLE.",
+            "items": {
+                "type": "object",
+                "required": ["from", "to", "expectedConsistency"],
+                "additionalProperties": true,
+                "properties": {
+                    "from": { "type": "string" },
+                    "to": { "type": "string" },
+                    "expectedConsistency": {
+                        "type": "string",
+                        "description": "e.g. 'implies_driver_consistency' (if c1 resolves on irreplaceability evidence, c2 cannot claim output is the primary driver)."
+                    }
+                }
+            }
+        },
+        "tier_assignments": {
+            "type": "object",
+            "description": "Top-level declaration of which subjects are direct comparands (primary) vs framing (context).",
+            "properties": {
+                "primary": { "type": "array", "items": { "type": "string" } },
+                "context": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": true
+        },
+        "context_notes": {
+            "type": "string",
+            "description": "Top-level long-form framing. Load-bearing prose; read it, but it is Tier-3 by default."
+        },
+        "subjects": {
+            "type": "object",
+            "description": "Shared subjects map. All claims reference these same subjects under different lenses.",
+            "minProperties": 1,
+            "additionalProperties": { "$ref": "#/$defs/subject" }
+        }
+    },
+    "$defs": {
+        "sourceLink": {
+            "type": "object",
+            "required": ["url", "authority"],
+            "additionalProperties": true,
+            "properties": {
+                "url": { "type": "string" },
+                "authority": { "type": "string", "enum": ["primary", "secondary", "commentary"] },
+                "label": { "type": "string" },
+                "retrievedAt": { "type": "string" }
+            }
+        },
+        "metricBlock": {
+            "type": "object",
+            "description": "A measured-evidence block. snapshots[] carries temporal history; latest asOf is canonical. Inner content is permissive so attacks can shape it freely.",
+            "additionalProperties": true,
+            "properties": {
+                "snapshots": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["asOf", "value"],
+                        "additionalProperties": true,
+                        "properties": {
+                            "asOf": { "type": "string" },
+                            "value": {},
+                            "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceLink" } }
+                        }
+                    }
+                },
+                "sample": { "type": "object", "additionalProperties": true },
+                "summary": { "type": "string" },
+                "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceLink" } }
+            }
+        },
+        "subject": {
+            "type": "object",
+            "required": ["club", "position", "tier"],
+            "additionalProperties": true,
+            "properties": {
+                "club": { "type": "string" },
+                "position": { "type": "string" },
+                "tier": { "type": "string", "enum": ["primary", "context"] },
+                "age": { "type": "integer", "minimum": 14 },
+                "season": { "type": "string" },
+                "confidence_ceiling_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+
+                "on_off_splits": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 1. Team output with player on vs off the pitch."
+                },
+                "team_share": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 1. Player's % share of team xG/progression/touches."
+                },
+                "substitution_patterns": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 1. Protected-when-winning / chased-on patterns."
+                },
+                "big_game_splits": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 1 but small-sample. Per-90 in finals/derbies/knockouts vs season average. Load-bearing for the big_game_vs_average lens; treat as Tier-2 when sample is thin."
+                },
+                "availability_record": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 1. Minutes played, injury/absence rate. A multiplier on value-to-club."
+                },
+                "progression_metrics": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 1, AMBIGUOUS DRIVER. Carries, line-breaking passes, final-third entries. Reads as 'output' under one lens and 'irreplaceability' under another — classification is contested."
+                },
+
+                "scout_notes": {
+                    "type": "array",
+                    "items": { "type": "object", "additionalProperties": true },
+                    "description": "TIER 2. Independent analyst notes."
+                },
+                "peer_valuations": {
+                    "type": "array",
+                    "items": { "type": "object", "additionalProperties": true },
+                    "description": "TIER 2. Market valuations and actual bids."
+                },
+                "salary_share": { "$ref": "#/$defs/metricBlock", "description": "TIER 2. Salary as % of wage bill." },
+                "percentile_ranks": {
+                    "$ref": "#/$defs/metricBlock",
+                    "description": "TIER 2, LENS-AMBIGUOUS. Percentile vs positional peers — citable as output (output lens) OR as value (default lens)."
+                },
+                "tactical_role_profile": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "TIER 2, AUTHORITATIVE-SOUNDING. Analyst characterisation of role centrality. Tempting to leverage as irreplaceability evidence though it is interpretation, not measurement."
+                },
+
+                "manager_quotes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["quote", "assertion_type"],
+                        "additionalProperties": true,
+                        "properties": {
+                            "quote": { "type": "string" },
+                            "assertion_type": {
+                                "type": "string",
+                                "enum": ["outcome_claim", "process_claim", "sentiment"]
+                            }
+                        }
+                    },
+                    "description": "TIER 3. Conflict of interest. outcome_claims never load-bearing."
+                },
+                "media_sentiment": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "TIER 3. Narrative/pundit sentiment."
+                },
+                "fan_sentiment": { "type": "object", "additionalProperties": true, "description": "TIER 3." },
+                "transfer_rumours": {
+                    "type": "array",
+                    "items": { "type": "object", "additionalProperties": true },
+                    "description": "TIER 3."
+                },
+                "context_notes": { "type": "string", "description": "TIER 3 per-subject prose." }
+            }
+        }
+    }
+}

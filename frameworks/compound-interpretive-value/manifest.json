@@ -1,0 +1,65 @@
+{
+    "name": "compound-interpretive-value",
+    "version": "1.0.0",
+    "description": "A compound interpretive value framework: one question decomposes into ordered, individually-interpretive sub-claims (value synthesis, output-vs-irreplaceability driver decomposition, big-game-vs-average context conditioning) over a shared, deliberately rich subjects map. Each sub-claim is adjudicated under a declared weighting lens; the judge composes the sub-verdicts into the six on-chain fields. The attack surface is interpretive composition: lens application, cross-claim coherence, confidence composition, and the contestable tier/lens classification of an inflated evidence set (progression_metrics, percentile_ranks, big_game_splits, tactical_role_profile). v1.0 is an honest first attempt; addendums are added as rounds reveal real cracks.",
+    "applicableTo": ["compound_player_value", "player_value", "player_ranking"],
+    "model": {
+        "id": "z-ai/glm-4.7",
+        "sampling": {
+            "temperature": 0,
+            "topP": 1.0,
+            "seed": 0,
+            "maxTokens": 2600,
+            "reasoningEffort": "medium"
+        }
+    },
+    "evidenceSchema": "schemas/dossier.json",
+    "outputSchema": {
+        "type": "object",
+        "required": ["outcome", "confidence_bps", "driving_tier", "subject_ref", "citations", "rationale_hash"],
+        "additionalProperties": true,
+        "properties": {
+            "outcome": { "type": "integer", "enum": [0, 1, 2] },
+            "confidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+            "driving_tier": { "type": "integer", "enum": [1, 2, 3] },
+            "subject_ref": { "type": "string" },
+            "citations": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "pattern": "^dossier://" }
+            },
+            "rationale_hash": { "type": "string", "pattern": "^0x[0-9a-fA-F]{64}$" },
+            "sub_verdicts": {
+                "type": "array",
+                "description": "Eval-only. Per-claim sub-verdict records. On-chain parser ignores.",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "claimId": { "type": "string" },
+                        "subVerdict": { "type": "string", "enum": ["YES", "NO", "UNDECIDED"] },
+                        "claimConfidence_bps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+                        "drivingTier": { "type": "integer", "enum": [1, 2, 3] }
+                    }
+                }
+            },
+            "composition_audit": {
+                "type": "string",
+                "description": "Eval-only. The judge's explicit composition arithmetic."
+            },
+            "cross_claim_consistency": {
+                "type": "string",
+                "description": "Eval-only. 'ok' or a description of the violated crossClaimRef."
+            }
+        }
+    },
+    "roles": {
+        "investigator": {
+            "prompt": "investigator.md",
+            "tools": ["fetch_http"],
+            "skills": ["schemas/dossier.json", "judge.md"]
+        },
+        "judge": {
+            "prompt": "judge.md"
+        }
+    }
+}
